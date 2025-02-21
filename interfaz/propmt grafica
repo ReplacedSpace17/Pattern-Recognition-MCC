@@ -1,0 +1,30 @@
+
+Tengo esta, comole hago para mostrar la distribucion de data?
+
+Data es :
+un json asi 
+{
+  "sepal_length": 5.1,
+  "sepal_width": 3.5,
+  "petal_length": 1.4,
+  "petal_width": 0.2,
+  "species": "Iris-setosa"
+}
+
+
+Stats:
+{
+  "p_valor": 0.9105455982049275,
+  "isNormal": true,
+  "cantidadDatos": 150,
+  "tipo_prueba": "Kolmogorov-Smirnov",
+  "media": 5.843333333333334,
+  "desviacionEstandar": 0.8253012917851408,
+  "mediana": 5.8,
+  "rango": 3.6000000000000005,
+  "varianza": 0.6811222222222221,
+  "minimo": 4.3,
+  "maximo": 7.9
+}
+
+Columna: sepal_length
