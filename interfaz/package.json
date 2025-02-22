@@ -12,8 +12,11 @@
   "dependencies": {
     "antd": "^5.24.0",
     "axios": "^1.7.9",
-    "chart.js": "^4.4.7",
+    "chart.js": "^4.4.8",
+    "chartjs-chart-matrix": "^2.0.1",
     "chartjs-plugin-annotation": "^3.1.0",
+    "chartjs-plugin-datalabels": "^2.2.0",
+    "heatmap.js": "^2.0.5",
     "jstat": "^1.9.6",
     "mathjs": "^14.2.1",
     "papaparse": "^5.5.2",
@@ -22,7 +25,8 @@
     "react-confetti": "^6.2.2",
     "react-dom": "^19.0.0",
     "react-router-dom": "^7.2.0",
-    "simple-statistics": "^7.8.7"
+    "simple-statistics": "^7.8.7",
+    "sweetalert2": "^11.17.2"
   },
   "devDependencies": {
     "@eslint/js": "^9.19.0",

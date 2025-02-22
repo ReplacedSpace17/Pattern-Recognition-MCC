@@ -5,6 +5,8 @@ import numpy as np
 from scipy import stats
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
+from sklearn.decomposition import PCA
+
 app = FastAPI()
 
 # Configuración de CORS
@@ -16,12 +18,12 @@ app.add_middleware(
     allow_headers=["*"],  # Permitir todos los headers
 )
 
-class NormalityTestRequest(BaseModel):
+class DataModel(BaseModel):
     data: List[Dict[str, Any]]
     columnas: List[str]
 
 @app.post("/normality/test")
-def test_normality(request: NormalityTestRequest):
+def test_normality(request: DataModel):
 
     resultados = {}
 
@@ -79,7 +81,7 @@ def test_normality(request: NormalityTestRequest):
 
 
 @app.post("/correlation/test")
-def test_correlation(request: NormalityTestRequest):
+def test_correlation(request: DataModel):
     # Convertir los datos en un DataFrame de pandas
     df = pd.DataFrame(request.data)
     
@@ -97,6 +99,46 @@ def test_correlation(request: NormalityTestRequest):
     print(correlation_matrix)
     
     return {"correlation_matrix": correlation_dict}
-##
 
+
+class PcaModel(BaseModel):
+    n_components: int
+    whiten: bool
+    svd_solver: str
+    random_state: int
+    data: List[Dict[str, Any]]
+    columnas: List[str]
+
+@app.post("/pca/test")
+def analyze_pca(request: PcaModel):
+    #imprimir los datos
+    print(request.n_components)
+    # Convertir los datos en un DataFrame de pandas
+    df = pd.DataFrame(request.data)
+    
+    # Filtrar solo las columnas especificadas
+    selected_columns = [col for col in request.columnas if col in df.columns]
+    df_filtered = df[selected_columns]
+    
+    # Convertir a valores numéricos (asegurarse de que no hay valores no numéricos)
+    df_filtered = df_filtered.apply(pd.to_numeric, errors='coerce').dropna()
+    
+    # Verificar que haya suficientes datos para PCA
+    if df_filtered.shape[0] < request.n_components:
+        return {"error": f"No hay suficientes datos para realizar PCA con {request.n_components} componentes"}
+    
+    # Aplicar PCA con los parámetros adecuados
+    pca = PCA(n_components=request.n_components, whiten=request.whiten, svd_solver=request.svd_solver, random_state=request.random_state)
+    pca.fit(df_filtered)
+    
+    # Obtener la varianza explicada por cada componente
+    explained_variance_ratio = pca.explained_variance_ratio_.tolist()
+    
+    return {
+        "variance_ratio": explained_variance_ratio,
+        "n_components": request.n_components,
+        "whiten": request.whiten,
+        "svd_solver": request.svd_solver,
+        "random_state": request.random_state
+    }
 
