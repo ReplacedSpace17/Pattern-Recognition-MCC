@@ -6,8 +6,13 @@ from scipy import stats
 from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from sklearn.decomposition import PCA
+from sklearn.preprocessing import StandardScaler
+from clasificadores.minima_distancia.minima_distancia_multiclase import MinimaDistanciaClassifier_multiclase
+from clasificadores.minima_distancia.minima_distancia_biclase import MinimaDistanciaClassifier_biclase
 
 app = FastAPI()
+classifier_multiclase = MinimaDistanciaClassifier_multiclase()
+classifier_biclase = MinimaDistanciaClassifier_biclase()
 
 # Configuración de CORS
 app.add_middleware(
@@ -100,6 +105,41 @@ def test_correlation(request: DataModel):
     
     return {"correlation_matrix": correlation_dict}
 
+@app.post("/variance/normalizada")
+def variance_normalizada(request: DataModel):
+    # Convertir los datos en un DataFrame de Pandas
+    df = pd.DataFrame(request.data)
+
+    # Seleccionar solo las columnas numéricas enviadas en la petición
+    X = df[request.columnas].values  
+
+    # Normalizar los datos
+    scaler = StandardScaler()
+    X_scaled = scaler.fit_transform(X)
+
+    # Aplicar PCA
+    pca = PCA()
+    pca.fit(X_scaled)
+
+    # Calcular varianza explicada y acumulada
+    explained_variance = pca.explained_variance_ratio_.tolist()
+    cumulative_variance = np.cumsum(pca.explained_variance_ratio_).tolist()
+
+    # Formatear la respuesta en JSON
+    response = {
+        "varianza_explicada": [
+            {"componente": i + 1, "varianza": round(var, 4), "porcentaje": round(var * 100, 2)}
+            for i, var in enumerate(explained_variance)
+        ],
+        "varianza_acumulada": [
+            {"componentes": i + 1, "varianza_acumulada": round(var, 4), "porcentaje": round(var * 100, 2)}
+            for i, var in enumerate(cumulative_variance)
+        ]
+    }
+    # imprimir la respuesta
+    print(response)
+
+    return response
 
 class PcaModel(BaseModel):
     n_components: int
@@ -109,10 +149,12 @@ class PcaModel(BaseModel):
     data: List[Dict[str, Any]]
     columnas: List[str]
 
+
 @app.post("/pca/test")
 def analyze_pca(request: PcaModel):
-    #imprimir los datos
+    # Imprimir los datos
     print(request.n_components)
+    
     # Convertir los datos en un DataFrame de pandas
     df = pd.DataFrame(request.data)
     
@@ -120,7 +162,7 @@ def analyze_pca(request: PcaModel):
     selected_columns = [col for col in request.columnas if col in df.columns]
     df_filtered = df[selected_columns]
     
-    # Convertir a valores numéricos (asegurarse de que no hay valores no numéricos)
+    # Convertir a valores numéricos (asegurarse de que no haya valores no numéricos)
     df_filtered = df_filtered.apply(pd.to_numeric, errors='coerce').dropna()
     
     # Verificar que haya suficientes datos para PCA
@@ -134,11 +176,46 @@ def analyze_pca(request: PcaModel):
     # Obtener la varianza explicada por cada componente
     explained_variance_ratio = pca.explained_variance_ratio_.tolist()
     
+    # Obtener la matriz de cargas (componentes principales)
+    loadings = pca.components_.tolist()
+    
+    # Crear un diccionario con las variables originales y sus cargas
+    loadings_dict = {}
+    for i, feature in enumerate(df_filtered.columns):
+        loadings_dict[feature] = {f"Componente {j+1}": loadings[j][i] for j in range(request.n_components)}
+    
     return {
         "variance_ratio": explained_variance_ratio,
         "n_components": request.n_components,
         "whiten": request.whiten,
         "svd_solver": request.svd_solver,
-        "random_state": request.random_state
+        "random_state": request.random_state,
+        "loadings": loadings_dict  # Matriz de cargas
     }
 
+
+
+class MinimaDistanciaModel(BaseModel):
+    type: str  # Tipo de clasificación, puede ser 'multiclase' o 'biclase'
+    distancia_type: str  # Tipo de distancia, 'euclidiana', 'manhattan', 'minkowski'
+    etiquetas: List[str]  # Columnas donde están las etiquetas
+    selected_class: List[str]  # Lista de clases seleccionadas si el tipo de clasificación es multiclase
+    selected_features: List[str]  # Columnas seleccionadas para entrenar el modelo
+    data: List[Dict[str, Any]]  # Datos
+
+# Endpoint que recibe el JSON
+@app.post("/clasificador/minima_distancia")
+async def clasificador_minima_distancia(request: MinimaDistanciaModel):
+    if request.type == "biclase":
+        # Crear una instancia del clasificador para clasificación biclase
+        classifier_biclase = MinimaDistanciaClassifier_biclase(distancia_type=request.distancia_type)
+        # Pasar 'selected_class' a la función classify
+        resultados = classifier_biclase.classify(request.data, request.selected_features, request.etiquetas, request.selected_class)
+
+    elif request.type == "multiclase":
+        # Crear una instancia del clasificador para clasificación multiclase
+        classifier_multiclase = MinimaDistanciaClassifier_multiclase(distancia_type=request.distancia_type)
+        # Sin embargo, multiclase no usa 'selected_class'
+        resultados = classifier_multiclase.classify(request.data, request.selected_features, request.etiquetas)
+
+    return {"type_classification": request.type, "tipo_distancia": request.distancia_type, **resultados}

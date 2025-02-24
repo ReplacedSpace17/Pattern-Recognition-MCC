@@ -22,6 +22,7 @@ import Swal from 'sweetalert2';
 import ResumePlot from './Components/Resumen/VerDatos';
 import CorrelationMatrix from './Components/Resumen/TestCorrelation';
 import NormalidadPlot from './Components/Resumen/TestNormalidad';
+import VarianzaExplicada from './Components/VarianzaExplicada';
 
 function Inicio() {
   const navigate = useNavigate();
@@ -70,6 +71,7 @@ function Inicio() {
     // root.render(<DistributionGraphic data={data} stats={stats} />); // Renderizar el componente
     root.render(<ResumePlot data={data} columnasSeleccionadas={columnasSeleccionadas} etiquetaData={etiquetaData}/>); // Renderizar el componente
   };
+  //correlacion plot
   const showCorrelationPlot = (dataCorrelation) => {
     // Crear una nueva ventana
     const newWindow = window.open('', '', 'width=300px,height=600');
@@ -81,6 +83,7 @@ function Inicio() {
     // root.render(<DistributionGraphic data={data} stats={stats} />); // Renderizar el componente
     root.render(<CorrelationMatrix dataCorrelation={dataCorrelation} />); // Renderizar el componente
   };
+  //normalidad plot
   const showNormalityPlot = (data, stats, columnas) => {
     // Crear una nueva ventana
     const newWindow = window.open('', '', 'width=300px,height=600');
@@ -92,6 +95,18 @@ function Inicio() {
     // root.render(<DistributionGraphic data={data} stats={stats} />); // Renderizar el componente
     root.render(<NormalidadPlot data={data} stats={stats} columnasSeleccionadas={columnas} />); // Renderizar el componente
   };
+    //varianza explicada
+    const showVarianzaExplicada = (varianzaData) => {
+      // Crear una nueva ventana
+      const newWindow = window.open('', '', 'width=300px,height=600');
+      // Crear un contenedor en la nueva ventana
+      const container = newWindow.document.createElement('div');
+      newWindow.document.body.appendChild(container);
+      // Usar ReactDOM.createRoot para renderizar el componente en el nuevo contenedor
+      const root = ReactDOM.createRoot(container); // Crear la raíz
+      // root.render(<DistributionGraphic data={data} stats={stats} />); // Renderizar el componente
+      root.render(<VarianzaExplicada varianzaData={varianzaData} />); // Renderizar el componente
+    };
 /////////////////////////////////////////////////////////////////
   //-------------------------------------------------
   //modelos de clasificacion disponibles
@@ -248,7 +263,7 @@ function Inicio() {
     if (statusCode === 200) {
       //obtener la data del response
       const data = await response.json();
-      //console.log('resultados back: ', data);
+      console.log('resultados correlacion: ', data);
       //alert('Resultados de la prueba de correlación: ' + JSON.stringify(data.correlation_matrix));
       setResultsCorrelation(data.correlation_matrix);
 
@@ -256,6 +271,35 @@ function Inicio() {
   };
 
   //prueba de componentes principales PCA
+  const handleVarianzaExplicada = async (data, columnasSeleccionadas) => {
+    console.log('Datos:', data);
+    console.log('Columnas:', columnasSeleccionadas);
+    const json_send = {
+      columnas: columnasSeleccionadas,
+      data: data
+    }
+    //enviar a /variance/normalizada
+    const response = await fetch(`${BACKEND}/variance/normalizada`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(json_send),
+    });
+    //obtener el status code
+    const statusCode = response.status;
+    if (statusCode !== 200) {
+      message.error('Error al ejecutar el análisis de componentes principales.');
+      return;
+    }
+    if (statusCode === 200) {
+      //impiiir los resultados del response
+      const responsedata = await response.json();
+      console.log('resultados back: ', responsedata);
+      await showVarianzaExplicada(responsedata);
+    }
+  };
+
   const handlePCATest = async () => {
     const data = {
       columnas: selectedColumns,
@@ -283,7 +327,7 @@ function Inicio() {
     if (statusCode === 200) {
       //obtener la data del response
       const data = await response.json();
-      //console.log('resultados back: ', data);
+      console.log('resultados PCA: ', data);
       //alert('Resultados del análisis de componentes principales: ' + JSON.stringify(data));
       //Mostrar un modal
 
@@ -314,6 +358,7 @@ function Inicio() {
     }
 
 
+  
   };
   // ##########################################################################################################################  VISTAS
   const steps = [
@@ -662,7 +707,12 @@ function Inicio() {
               Por favor configure los parámetros y ejecute el análisis de componentes principales.
             </p>
           </div>
-
+          <Button type="default" style={{marginBottom:'20px'}} onClick={async () => {
+             
+             await handleVarianzaExplicada(datos, selectedColumns);
+            }}>
+              Obtener varianza explicada
+            </Button>
           {/* Configuración de parámetros */}
           <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', gap: '10px' }}>
             <Form.Item label="Número de Componentes" style={{ flex: 1 }}>
@@ -678,7 +728,6 @@ function Inicio() {
             <Select value={selectedSVD_solver} onChange={setSelectedSVD_solver} style={{ width: '100%' }}>
               <Select.Option value="auto">Auto</Select.Option>
               <Select.Option value="full">Full</Select.Option>
-              <Select.Option value="arpack">Arpack</Select.Option>
               <Select.Option value="randomized">Randomized</Select.Option>
             </Select>
           </Form.Item>
@@ -820,18 +869,7 @@ function Inicio() {
             </Select>
           </div>
 
-          <div style={{ overflowY: 'auto', maxHeight: '300px', marginBottom: '20px' }}>
-            {selectedColumns.map((col, index) => (
-              <Form.Item key={index} name={`col_${index}`} valuePropName="checked">
-                <Checkbox
-                  checked={selectedColumns.includes(col)}
-                  onChange={(e) => handleCheckboxChange(e, col)}
-                >
-                  {col}
-                </Checkbox>
-              </Form.Item>
-            ))}
-          </div>
+        
 
 
           {/* Botón para continuar */}
@@ -843,11 +881,20 @@ function Inicio() {
               () => {
                 // Validar que se hayan seleccionado características
                 console.log('selectedNewFeatures_PCA:', selectedNewFeatures_PCA);
-                console.log('selected model:', selectedModel);
-                //si el modelo es 1 navigate a /distancia_minima
-                if (selectedModel === 1) {
-                  navigate('/distancia_minima');
-                }
+console.log('selected model:', selectedModel);
+
+// Si el modelo es 1, navega a /distancia_minima y pasa los valores
+if (selectedModel === 1) {
+  navigate('/distancia_minima', {
+    state: {
+      selectedNewFeatures_PCA: selectedColumns,
+      selectedModel: selectedModel,
+      data_bd: base_datos,
+      etiquetas: etiqueta
+    }
+  });
+}
+
               }
             }>
               Continuar
@@ -891,7 +938,7 @@ function Inicio() {
           </div>
         </div>
       </Content>
-      <Footer style={{ textAlign: 'center' }}>ReplacedSpace17 - Axiom</Footer>
+      <Footer style={{ textAlign: 'center' }}>ReplacedSpace17 - RP_MCC</Footer>
     </Layout>
   );
 }

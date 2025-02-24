@@ -2,9 +2,8 @@ import React from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, Title, Tooltip, Legend } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 import { MatrixController, MatrixElement } from 'chartjs-chart-matrix';
-import ChartDataLabels from 'chartjs-plugin-datalabels'; // Importar el plugin de datalabels
 
-// Registrar el plugin de matriz y el plugin de datalabels
+// Registrar el plugin de matriz
 ChartJS.register(
     CategoryScale,
     LinearScale,
@@ -13,45 +12,39 @@ ChartJS.register(
     Tooltip,
     Legend,
     MatrixController,
-    MatrixElement,
-    ChartDataLabels // Registrar el plugin de datalabels
+    MatrixElement
 );
 
 const CorrelationMatrix = ({ dataCorrelation }) => {
-    // Extraer las etiquetas (nombres de las columnas)
-    const labels = Object.keys(dataCorrelation.sepal_length); // Acceder a las claves dentro de 'sepal_length'
+    const labels = Object.keys(dataCorrelation.sepal_length);
 
-    // Crear la matriz de datos para el gráfico
     const data = {
         labels: labels,
         datasets: [
             {
                 label: 'Correlación',
-                data: [] // Inicializar el arreglo de datos vacío
+                data: []
             },
         ],
     };
 
-    // Función para asignar color según el valor de correlación
     const getColor = (value) => {
         const red = Math.max(0, Math.min(255, Math.round((1 - value) * 255)));
         const blue = Math.max(0, Math.min(255, Math.round((value + 1) * 255) / 2));
-        return `rgb(${red}, 0, ${blue})`; // Color entre rojo y azul
+        return `rgb(${red}, 0, ${blue})`;
     };
 
-    // Llenar el arreglo de datos con los valores de correlación
     labels.forEach((row) => {
         labels.forEach((col) => {
             data.datasets[0].data.push({
                 x: col,
                 y: row,
-                v: dataCorrelation[row][col], // Valor de correlación
-                backgroundColor: getColor(dataCorrelation[row][col]), // Asignar color según el valor
+                v: dataCorrelation[row][col],
+                backgroundColor: getColor(dataCorrelation[row][col]),
             });
         });
     });
 
-    // Opciones del gráfico
     const options = {
         responsive: true,
         maintainAspectRatio: false,
@@ -72,17 +65,6 @@ const CorrelationMatrix = ({ dataCorrelation }) => {
                         return `Correlación: ${value.toFixed(2)}`;
                     },
                 },
-            },
-            // Configuración de los datalabels
-            datalabels: {
-                color: 'black', // Color del texto
-                font: {
-                    weight: 'bold',
-                    size: 14,
-                },
-                align: 'center',
-                anchor: 'center',
-                formatter: (value) => value.v.toFixed(2), // Mostrar el valor de la correlación con 2 decimales
             },
         },
         scales: {
