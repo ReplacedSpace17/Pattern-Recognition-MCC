@@ -1,24 +1,24 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, Title, Tooltip, Legend } from 'chart.js';
 import { Scatter } from 'react-chartjs-2';
 
 ChartJS.register(CategoryScale, LinearScale, PointElement, Title, Tooltip, Legend);
 
-// Generar colores distintos usando HSL bien espaciado
 const generateDistinctColors = (numColors) => {
     const colors = [];
     for (let i = 0; i < numColors; i++) {
-        const hue = (i * 360 / numColors) % 360; // Espaciado uniforme en el círculo de color
+        const hue = (i * 360 / numColors) % 360;
         colors.push(`hsl(${hue}, 70%, 50%)`);
     }
     return colors;
 };
 
 const ResumePlot = ({ data, columnasSeleccionadas, etiquetaData }) => {
-    const [xKey, setXKey] = useState(columnasSeleccionadas[0]); // Primer columna por defecto
-    const [yKey, setYKey] = useState(columnasSeleccionadas[1] || columnasSeleccionadas[0]); // Segunda o la misma
+    const [xKey, setXKey] = useState(columnasSeleccionadas[0]);
+    const [yKey, setYKey] = useState(columnasSeleccionadas[1] || columnasSeleccionadas[0]);
     const [chartData, setChartData] = useState(null);
     const [classColors, setClassColors] = useState({});
+    const chartRef = useRef(null);
 
     const generarGrafica = () => {
         if (!data || !xKey || !yKey || !etiquetaData) return;
@@ -26,7 +26,6 @@ const ResumePlot = ({ data, columnasSeleccionadas, etiquetaData }) => {
         const classGroups = {};
         const uniqueClasses = new Set();
 
-        // Agrupar los datos por clase y detectar nombres únicos
         data.forEach(item => {
             const classLabel = item[etiquetaData]?.toString().trim().toLowerCase();
             if (!classLabel) return;
@@ -38,14 +37,10 @@ const ResumePlot = ({ data, columnasSeleccionadas, etiquetaData }) => {
             }
 
             if (item[xKey] !== undefined && item[yKey] !== undefined) {
-                classGroups[classLabel].push({
-                    x: item[xKey],
-                    y: item[yKey]
-                });
+                classGroups[classLabel].push({ x: item[xKey], y: item[yKey] });
             }
         });
 
-        // Generar una paleta de colores bien diferenciada
         const colorPalette = generateDistinctColors(uniqueClasses.size);
         const newClassColors = {};
         Array.from(uniqueClasses).forEach((classLabel, index) => {
@@ -54,7 +49,6 @@ const ResumePlot = ({ data, columnasSeleccionadas, etiquetaData }) => {
 
         setClassColors(newClassColors);
 
-        // Crear datasets para el gráfico
         const datasets = Object.keys(classGroups).map(classLabel => ({
             label: classLabel,
             data: classGroups[classLabel],
@@ -67,63 +61,115 @@ const ResumePlot = ({ data, columnasSeleccionadas, etiquetaData }) => {
         setChartData({ datasets });
     };
 
+    const descargarGrafico = () => {
+        //generar un nombre de archivo unique aleatorio
+        const randomString = Math.random().toString(36).substring(7);
+        if (chartRef.current) {
+            const link = document.createElement('a');
+            link.href = chartRef.current.toBase64Image();
+            link.download = 'grafico_dispersion.png';
+            link.click();
+        }
+    };
+
     useEffect(() => {
-        generarGrafica(); // Generar gráfica inicial con los valores por defecto
+        generarGrafica();
     }, [data]);
 
     return (
-        <div className="resume-plot" style={{ width: '100%', height: '100%', backgroundColor: 'white', display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center' }}>
-        
-        <div style={{ width: '80%', height: 'auto', backgroundColor: 'white', padding: '20px', borderRadius: '10px' }}>
-            <h3>Scatter Plot</h3>
+        <div className="resume-plot">
+            <div className="plot-container">
+                <h3>Scatter Plot</h3>
+                <div className="controls">
+                    <label>
+                        Eje X:
+                        <select value={xKey} onChange={e => setXKey(e.target.value)}>
+                            {columnasSeleccionadas.map(col => (
+                                <option key={col} value={col}>{col}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <label>
+                        Eje Y:
+                        <select value={yKey} onChange={e => setYKey(e.target.value)}>
+                            {columnasSeleccionadas.map(col => (
+                                <option key={col} value={col}>{col}</option>
+                            ))}
+                        </select>
+                    </label>
+                    <button onClick={generarGrafica}>Generar Gráfica</button>
+                    <button onClick={descargarGrafico} disabled={!chartData}>Descargar</button>
 
-            {/* Controles para seleccionar columnas */}
-            <div style={{ display: 'flex', gap: '10px', marginBottom: '15px' }}>
-                <label>
-                    Eje X:
-                    <select value={xKey} onChange={e => setXKey(e.target.value)}>
-                        {columnasSeleccionadas.map(col => (
-                            <option key={col} value={col}>{col}</option>
-                        ))}
-                    </select>
-                </label>
-
-                <label>
-                    Eje Y:
-                    <select value={yKey} onChange={e => setYKey(e.target.value)}>
-                        {columnasSeleccionadas.map(col => (
-                            <option key={col} value={col}>{col}</option>
-                        ))}
-                    </select>
-                </label>
-
-                <button onClick={generarGrafica}>Generar Gráfica</button>
-            </div>
-
-            {/* Mostrar gráfica */}
-            {chartData ? (
-                <Scatter
-                    data={chartData}
-                    options={{
-                        responsive: true,
-                        scales: {
-                            x: {
-                                title: { display: true, text: xKey }
+                </div>
+                {chartData ? (
+                    <Scatter
+                        ref={chartRef}
+                        data={chartData}
+                        options={{
+                            responsive: true,
+                            scales: {
+                                x: { title: { display: true, text: xKey } },
+                                y: { title: { display: true, text: yKey } }
                             },
-                            y: {
-                                title: { display: true, text: yKey }
+                            plugins: {
+                                legend: { position: 'top' },
+                                tooltip: { enabled: true }
                             }
-                        },
-                        plugins: {
-                            legend: { position: 'top' },
-                            tooltip: { enabled: true }
-                        }
-                    }}
-                />
-            ) : (
-                <p>Cargando datos...</p>
-            )}
-        </div>
+                        }}
+                    />
+                ) : (
+                    <p>Cargando datos...</p>
+                )}
+            </div>
+            <style>{`
+                .resume-plot {
+                    width: 100%;
+                    height: 100%;
+                    background-color: white;
+                    display: flex;
+                    flex-direction: column;
+                    align-items: center;
+                    justify-content: center;
+                    font-family: Arial, sans-serif;
+                }
+                .plot-container {
+                    width: 80%;
+                    background-color: white;
+                    padding: 20px;
+                    border-radius: 10px;
+                    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+                }
+                h3 {
+                    text-align: center;
+                    margin-bottom: 15px;
+                }
+                .controls {
+                    display: flex;
+                    gap: 15px;
+                    margin-bottom: 20px;
+                    justify-content: center;
+                    align-items: center;
+                }
+                select, button {
+                    padding: 8px 12px;
+                    border-radius: 5px;
+                    border: 1px solid #d9d9d9;
+                    font-size: 14px;
+                    cursor: pointer;
+                }
+                select {
+                    background-color: #fff;
+                }
+                button {
+                    background-color: #1890ff;
+                    color: white;
+                    border: none;
+                    transition: background-color 0.3s;
+                }
+                button:hover {
+                    background-color: #40a9ff;
+                }
+            `}</style>
         </div>
     );
 };

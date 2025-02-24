@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import {
-  Layout, Steps, Form, Input, Select, Row, Col, Button, message, Space, List, Tooltip, Upload, Checkbox, Table,
+  Layout, Steps, Form, Input, Select, Row, Col,Radio,  Button, message, Space, List, Tooltip, Upload, Checkbox, Table,
   InputNumber, Switch, Modal
 } from 'antd';
 import { UploadOutlined, InboxOutlined, ExperimentOutlined } from '@ant-design/icons';
@@ -23,6 +23,7 @@ import ResumePlot from './Components/Resumen/VerDatos';
 import CorrelationMatrix from './Components/Resumen/TestCorrelation';
 import NormalidadPlot from './Components/Resumen/TestNormalidad';
 import VarianzaExplicada from './Components/VarianzaExplicada';
+import PCATest from './Components/Resumen/TestPCA';
 
 function Inicio() {
   const navigate = useNavigate();
@@ -31,6 +32,7 @@ function Inicio() {
   const [columns, setColumns] = useState([]);
   const [csvData, setCsvData] = useState([]);
   const [fileName, setFileName] = useState("");
+  const [etiquetasCSV, setEtiquetasCSV] = useState([]);
   //------------------------------------------------------------- mostrrar cosas
   //mostrar tabla de correlacion
   const [showCorrelationTable, setShowCorrelationTable] = useState(false);
@@ -106,6 +108,18 @@ function Inicio() {
       const root = ReactDOM.createRoot(container); // Crear la raíz
       // root.render(<DistributionGraphic data={data} stats={stats} />); // Renderizar el componente
       root.render(<VarianzaExplicada varianzaData={varianzaData} />); // Renderizar el componente
+    };
+
+    const showPCA_test = (data) => {
+      // Crear una nueva ventana
+      const newWindow = window.open('', '', 'width=300px,height=600');
+      // Crear un contenedor en la nueva ventana
+      const container = newWindow.document.createElement('div');
+      newWindow.document.body.appendChild(container);
+      // Usar ReactDOM.createRoot para renderizar el componente en el nuevo contenedor
+      const root = ReactDOM.createRoot(container); // Crear la raíz
+      // root.render(<DistributionGraphic data={data} stats={stats} />); // Renderizar el componente
+      root.render(<PCATest data={data} />); // Renderizar el componente
     };
 /////////////////////////////////////////////////////////////////
   //-------------------------------------------------
@@ -378,56 +392,82 @@ function Inicio() {
           </div>
 
           <Dragger
-            accept=".csv"
-            showUploadList={false}
-            beforeUpload={(file) => {
-              if (file.type !== 'text/csv') {
-                message.error('Solo se permiten archivos CSV.');
-                return false;
-              }
-              const reader = new FileReader();
-              reader.onload = async (e) => {
-                const text = e.target.result;
-                const rows = text.split("\n");
+  accept=".csv"
+  showUploadList={false}
+  beforeUpload={(file) => {
+    if (file.type !== 'text/csv') {
+      message.error('Solo se permiten archivos CSV.');
+      return false;
+    }
 
-                // Obtener los headers (nombres de las columnas)
-                const headers = rows[0].split(",");
+    const reader = new FileReader();
+    reader.onload = async (e) => {
+      const text = e.target.result;
+      const rows = text.split("\n").map(row => row.trim()).filter(row => row !== ""); // Eliminar líneas vacías
 
-                // Procesar las filas para crear el JSON
-                const jsonData = rows.slice(1).map((row) => {
-                  const values = row.split(",");
-                  const rowData = {};
+      // Obtener los headers (nombres de las columnas)
+      const headers = rows[0].split(",").map(header => header.trim());
 
-                  headers.forEach((header, index) => {
-                    const value = values[index] ? values[index].trim() : null; // Trim para eliminar espacios
-                    if (value !== null) {  // Eliminar los campos con valor null
-                      rowData[header.trim()] = value;
-                    }
-                  });
+      // Procesar las filas para crear el JSON
+      let jsonData = rows.slice(1).map(row => {
+        const values = row.split(",").map(value => value.trim());
+        const rowData = {};
 
-                  return rowData;
-                });
+        headers.forEach((header, index) => {
+          rowData[header] = values[index] !== "" ? values[index] : null; // Convertir valores vacíos a null
+        });
+
+        return rowData;
+      });
+
+      // Detectar columnas numéricas y categóricas
+      const numericColumns = headers.filter(header =>
+        jsonData.every(row => row[header] === null || (!isNaN(parseFloat(row[header])) && isFinite(row[header])))
+      );
+
+      const categoricalColumns = headers.filter(header => !numericColumns.includes(header));
+
+      // Filtrar registros eliminando NaN SOLO en columnas numéricas
+      jsonData = jsonData.filter(row =>
+        numericColumns.every(col => row[col] !== null && row[col] !== "")
+      );
+
+      // Convertir valores numéricos a tipo número
+      jsonData = jsonData.map(row => {
+        numericColumns.forEach(col => {
+          if (row[col] !== null) {
+            row[col] = parseFloat(row[col]); // Convertir string a número
+          }
+        });
+        return row;
+      });
+
+      // Actualizar estados
+      setColumns(numericColumns); // Solo columnas numéricas
+      setEtiquetasCSV(categoricalColumns); // Solo columnas categóricas
+      setCsvData(jsonData);
+      setFileName(file.name);
+
+      console.log("Datos en JSON sin NaN en numéricas:", jsonData);
+      console.log("Columnas numéricas:", numericColumns);
+      console.log("Columnas categóricas:", categoricalColumns);
+
+      await setDatos(jsonData);
+    };
+
+    reader.readAsText(file);
+    return false;
+  }}
+  style={{ padding: '20px', border: '2px dashed #1890ff', borderRadius: '8px', marginBottom: '20px' }}
+>
+  <p className="ant-upload-drag-icon">
+    <InboxOutlined />
+  </p>
+  <p className="ant-upload-text">Haz clic o arrastra un archivo CSV aquí para cargarlo</p>
+</Dragger>
 
 
-                // Actualizar el estado con los datos procesados
-                setColumns(headers);
-                setCsvData(jsonData); // Aquí guardas el JSON
-                setFileName(file.name);
 
-                // Mostrar el JSON en la consola (opcional)
-                console.log("Datos en JSON:", jsonData);
-                await setDatos(jsonData);
-              };
-              reader.readAsText(file);
-              return false;
-            }}
-            style={{ padding: '20px', border: '2px dashed #1890ff', borderRadius: '8px', marginBottom: '20px' }}
-          >
-            <p className="ant-upload-drag-icon">
-              <InboxOutlined />
-            </p>
-            <p className="ant-upload-text">Haz clic o arrastra un archivo CSV aquí para cargarlo</p>
-          </Dragger>
 
           {fileName && (
             <div style={{ marginTop: '10px', textAlign: 'center' }}>
@@ -493,54 +533,72 @@ function Inicio() {
         </Form>
       ),
     },
-    { //--------------------------------------------------------------------------------------------------------Seleccion de etiqueta 2
+    {
       title: 'Etiqueta',
       content: (
-        <Form form={form} layout="vertical" style={{ width: '90%', margin: '0 auto', justifyContent: 'center', minHeight: '500px', display: 'flex', flexDirection: 'column' }}>
+        <Form
+          form={form}
+          layout="vertical"
+          style={{
+            width: '90%',
+            margin: '0 auto',
+            justifyContent: 'center',
+            minHeight: '500px',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <div style={{ marginBottom: '20px', textAlign: 'center' }}>
             <h2 style={{ marginBottom: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
               <UploadOutlined style={{ fontSize: '24px', marginRight: '8px' }} />
-              Selecciona la etiqueta
+              Selecciona la Etiqueta
             </h2>
-            <div style={{ borderTop: '1px solid #b9b9b9', marginTop: '10px', width: '100%', marginBottom: '0px' }}></div>
+            <div
+              style={{
+                borderTop: '1px solid #b9b9b9',
+                marginTop: '10px',
+                width: '100%',
+                marginBottom: '0px',
+              }}
+            ></div>
             <p style={{ marginBottom: '0', color: '#272727' }}>
-              Del archivo seleccionado, selecciona cual columna contiene las etiquetas de clase.
+              Del archivo seleccionado, elige la columna que contiene las etiquetas de clase.
             </p>
           </div>
-
+    
+          {/* Opciones de selección */}
           <div style={{ overflowY: 'auto', maxHeight: '300px', marginBottom: '20px' }}>
-            {columns.map((col, index) => (
-              <Form.Item key={index} name={`col_${index}`} valuePropName="checked">
-                <Checkbox>{col}</Checkbox>
-              </Form.Item>
-            ))}
+            <Form.Item name="selectedEtiqueta">
+              <Radio.Group
+                onChange={(e) => {
+                  form.setFieldsValue({ selectedEtiqueta: e.target.value });
+                  setEtiqueta(e.target.value);
+                  console.log('Etiqueta seleccionada:', e.target.value);
+                }}
+                value={form.getFieldValue("selectedEtiqueta")}
+              >
+                {etiquetasCSV.map((col, index) => (
+                  <Radio key={index} value={col} style={{ display: 'block', marginBottom: '8px' }}>
+                    {col}
+                  </Radio>
+                ))}
+              </Radio.Group>
+            </Form.Item>
           </div>
-
+    
+          {/* Botones de navegación */}
           <div style={{ marginTop: 'auto', textAlign: 'center' }}>
-            <Button type="default" onClick={prev} style={{ marginRight: '10px' }}
-            >
+            <Button type="default" onClick={prev} style={{ marginRight: '10px' }}>
               Anterior
             </Button>
-            <Button type="primary" onClick={
-              () => {
-                // ingresar a selectedColumns las columnas seleccionadas, y agregar las que correspondan con los headers
-                const selectedColumns = form.getFieldsValue();
-                const selectedColumnsKeys = Object.keys(selectedColumns);
-                const selectedColumnsValues = Object.values(selectedColumns);
-                const selectedColumnsIndexes = selectedColumnsValues.map((value, index) => value ? index : null).filter((index) => index !== null);
-                const selectedColumnsNames = selectedColumnsIndexes.map((index) => columns[index]);
-                setEtiqueta(selectedColumnsNames);
-                //impirmir la etiqueta
-                console.log('Etiqueta:', selectedColumnsNames);
-                next();
-              }
-            }>
+            <Button type="primary" onClick={next} disabled={!form.getFieldValue("selectedEtiqueta")}>
               Continuar
             </Button>
           </div>
         </Form>
       ),
     },
+    
     { //-------------------------------------------------------------------------------------------------------- Prueba de Normalidad 3
       title: 'Normalidad',
       content: (
@@ -636,18 +694,43 @@ function Inicio() {
     { //--------------------------------------------------------------------------------------------------------- Correlacion 4
       title: 'Correlación',
       content: (
-        <Form form={form} layout="vertical" style={{ width: '90%', margin: '0 auto', justifyContent: 'center', minHeight: '500px', display: 'flex', flexDirection: 'column' }}>
+        <Form
+          form={form}
+          layout="vertical"
+          style={{
+            width: '90%',
+            margin: '0 auto',
+            justifyContent: 'center',
+            minHeight: '500px',
+            display: 'flex',
+            flexDirection: 'column',
+          }}
+        >
           <div style={{ marginBottom: '20px', textAlign: 'center' }}>
-            <h2 style={{ marginBottom: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+            <h2
+              style={{
+                marginBottom: '10px',
+                display: 'flex',
+                justifyContent: 'center',
+                alignItems: 'center',
+              }}
+            >
               <ExperimentOutlined style={{ fontSize: '24px', marginRight: '8px' }} />
               Prueba de Correlación
             </h2>
-            <div style={{ borderTop: '1px solid #b9b9b9', marginTop: '10px', width: '100%', marginBottom: '0px' }}></div>
+            <div
+              style={{
+                borderTop: '1px solid #b9b9b9',
+                marginTop: '10px',
+                width: '100%',
+                marginBottom: '0px',
+              }}
+            ></div>
             <p style={{ marginBottom: '0', color: '#272727' }}>
               Por favor inicie la prueba.
             </p>
           </div>
-
+    
           {/* Botón para ejecutar la prueba */}
           <div style={{ textAlign: 'center', marginBottom: '20px' }}>
             <Button
@@ -660,26 +743,42 @@ function Inicio() {
               Ejecutar Prueba
             </Button>
           </div>
-
+    
           {/* Resultados de la prueba */}
-          {showCorrelationTable && (
+          {showCorrelationTable && results_correlation && (
             <div style={{ marginTop: '20px', textAlign: 'center' }}>
-              <h3>Resultados de la Prueba de correlación</h3>
-              <Table
-                dataSource={Object.keys(results_correlation).map((key) => ({ key, ...results_correlation[key] }))}
-                columns={[
+              <h3>Resultados de la Prueba de Correlación</h3>
+              {(() => {
+                const variables = Object.keys(results_correlation); // Extrae los nombres de las variables
+    
+                // Construcción dinámica de columnas
+                const columns = [
                   { title: 'Variable', dataIndex: 'key', key: 'key' },
-                  { title: 'sepal_length', dataIndex: 'sepal_length', key: 'sepal_length' },
-                  { title: 'sepal_width', dataIndex: 'sepal_width', key: 'sepal_width' },
-                  { title: 'petal_length', dataIndex: 'petal_length', key: 'petal_length' },
-                  { title: 'petal_width', dataIndex: 'petal_width', key: 'petal_width' },
-                ]}
-                pagination={false}
-                scroll={{ x: 'max-content' }}
-              />
+                  ...variables.map((varName) => ({
+                    title: varName,
+                    dataIndex: varName,
+                    key: varName,
+                  })),
+                ];
+    
+                // Construcción dinámica de los datos
+                const dataSource = variables.map((varName) => ({
+                  key: varName,
+                  ...results_correlation[varName],
+                }));
+    
+                return (
+                  <Table
+                    dataSource={dataSource}
+                    columns={columns}
+                    pagination={false}
+                    scroll={{ x: 'max-content' }}
+                  />
+                );
+              })()}
             </div>
           )}
-
+    
           {/* Botón para continuar */}
           <div style={{ marginTop: 'auto', textAlign: 'center' }}>
             <br />
@@ -693,6 +792,7 @@ function Inicio() {
         </Form>
       ),
     },
+    
     { //--------------------------------------------------------------------------------------------------------- PCA 5
       title: 'PCA',
       content: (
@@ -818,6 +918,7 @@ function Inicio() {
               <Button type="default" onClick={
                 () => {
                 console.log('Resultados de PCA:', results_pca); //estadistica de PCA
+                showPCA_test(results_pca);
                 }
               } style={{ width: '100%' }}>
                 Ver Análisis de Componentes Principales
@@ -882,15 +983,16 @@ function Inicio() {
                 // Validar que se hayan seleccionado características
                 console.log('selectedNewFeatures_PCA:', selectedNewFeatures_PCA);
 console.log('selected model:', selectedModel);
-
+//convertir etiqueta a array
+const etiqueta_send = [etiqueta];
 // Si el modelo es 1, navega a /distancia_minima y pasa los valores
 if (selectedModel === 1) {
   navigate('/distancia_minima', {
     state: {
       selectedNewFeatures_PCA: selectedColumns,
       selectedModel: selectedModel,
-      data_bd: base_datos,
-      etiquetas: etiqueta
+      data_bd: datos,
+      etiquetas: etiqueta_send
     }
   });
 }

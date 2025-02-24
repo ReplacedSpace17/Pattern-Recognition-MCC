@@ -42,12 +42,16 @@ function DistanciaMinima() {
   };
 
   const renderClassSelection = () => {
+    console.log('data_bd:', data_bd);
+    console.log('etiquetas:', etiquetas);
+    //obtener todas las clases de la columna del valor de etiqueta en el data_bd
     if (classificationType === "biclase" && data_bd && etiquetas) {
       const classes = Array.from(new Set(data_bd.map(item => item[etiquetas[0]])));
       return (
         <Form.Item label="Seleccione las clases" name="selectedClasses" rules={[{ required: true, message: 'Debe seleccionar al menos una clase!' }]}>
           <Checkbox.Group onChange={handleClassChange} value={selectedClasses}>
             {classes.map(c => (
+              //console.log de el nombr
               <Checkbox key={c} value={c} disabled={selectedClasses.length >= 2 && !selectedClasses.includes(c)}>{c}</Checkbox>
             ))}
           </Checkbox.Group>

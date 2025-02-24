@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useState, useRef } from 'react';
 import { Chart as ChartJS, CategoryScale, LinearScale, BarElement, LineElement, PointElement, Title, Tooltip, Legend } from 'chart.js';
 import { Chart } from 'react-chartjs-2';
 import annotationPlugin from 'chartjs-plugin-annotation';
@@ -8,6 +8,7 @@ ChartJS.register(CategoryScale, LinearScale, BarElement, LineElement, PointEleme
 const NormalidadPlot = ({ data, stats, columnasSeleccionadas }) => {
   const [chartData, setChartData] = useState(null);
   const [columnaSeleccionada, setColumnaSeleccionada] = useState(columnasSeleccionadas[0]);
+  const chartRef = useRef(null); // 📌 Referencia al gráfico
 
   useEffect(() => {
     const columnData = data.map(item => item[columnaSeleccionada]).filter(val => !isNaN(val));
@@ -53,23 +54,69 @@ const NormalidadPlot = ({ data, stats, columnasSeleccionadas }) => {
           tension: 0.3,
         },
       ],
+      options: {
+        responsive: true,
+        maintainAspectRatio: false,
+        plugins: {
+          annotation: {
+            annotations: {
+              mediaLine: {
+                type: 'line',
+                mode: 'vertical',
+                scaleID: 'x',
+                value: media.toFixed(1), // 📌 Media en el eje X correctamente posicionada
+                borderColor: 'red',
+                borderWidth: 2,
+                borderDash: [6, 6], // Línea punteada
+                label: {
+                  content: `Media: ${media.toFixed(2)}`,
+                  enabled: true,
+                  position: 'center', // 📌 Etiqueta centrada en la línea
+                  backgroundColor: 'rgba(255, 99, 132, 0.8)',
+                },
+              },
+            },
+          },
+        },
+        scales: {
+          x: {
+            title: { display: true, text: 'Valor' },
+            type: 'linear', // 📌 Asegura que la escala es continua
+            ticks: {
+              callback: (val) => val.toFixed(1), // 📌 Muestra números redondeados
+            },
+          },
+          y: { title: { display: true, text: 'Frecuencia' }, beginAtZero: true },
+        },
+      },
     });
   }, [data, stats, columnaSeleccionada]);
 
+  // 📌 Función para descargar el gráfico
+  const handleDownload = () => {
+    if (chartRef.current) {
+      const link = document.createElement('a');
+      link.href = chartRef.current.toBase64Image();
+      link.download = `normalidad_${columnaSeleccionada}.png`;
+      link.click();
+    }
+  };
+
   return (
-    <div style={{ width: '100%', height: '70%', backgroundColor: 'white', textAlign: 'center', margin: 'auto' }}>
+    <div className="normalidad-plot">
       <h3>{columnaSeleccionada}</h3>
-      <div style={{ marginBottom: '20px' }}>
-        <select onChange={(e) => setColumnaSeleccionada(e.target.value)} value={columnaSeleccionada}>
-          {columnasSeleccionadas.map((col, index) => (
-            <option key={index} value={col}>
-              {col}
-            </option>
-          ))}
-        </select>
+      <div className="controls">
+        <label>Seleccionar columna:
+          <select onChange={(e) => setColumnaSeleccionada(e.target.value)} value={columnaSeleccionada}>
+            {columnasSeleccionadas.map((col, index) => (
+              <option key={index} value={col}>{col}</option>
+            ))}
+          </select>
+        </label>
+        <button className="download-btn" onClick={handleDownload}>Descargar</button>
       </div>
-      
-      <div>
+
+      <div className="stats-container">
         <h4>Estadísticas</h4>
         <p>Prueba: {stats[columnaSeleccionada].prueba}</p>
         <p>Estadístico: {stats[columnaSeleccionada].statistic}</p>
@@ -81,45 +128,73 @@ const NormalidadPlot = ({ data, stats, columnasSeleccionadas }) => {
         <p>Desviación Estándar: {stats[columnaSeleccionada].desviacion_estandar}</p>
       </div>
 
-      {chartData ? (
-        <Chart
-          type="bar"
-          data={chartData}
-          options={{
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-              title: { display: true, text: 'Histograma con Curva de Densidad' },
-              annotation: {
-                annotations: {
-                  meanLine: {
-                    type: 'line',
-                    yMin: 0,
-                    yMax: Math.max(...chartData.datasets[0].data),
-                    xMin: chartData.labels[Math.floor(chartData.labels.length / 2)],
-                    xMax: chartData.labels[Math.floor(chartData.labels.length / 2)],
-                    borderColor: 'red',
-                    borderWidth: 2,
-                    borderDash: [5, 5],
-                    label: {
-                      content: `Media: ${(chartData.labels[Math.floor(chartData.labels.length / 2)])}`,
-                      enabled: true,
-                      position: 'end',
-                      backgroundColor: 'rgba(255, 99, 132, 0.8)',
-                    },
-                  },
-                },
-              },
-            },
-            scales: {
-              x: { title: { display: true, text: 'Valor' } },
-              y: { title: { display: true, text: 'Frecuencia' }, beginAtZero: true },
-            },
-          }}
-        />
-      ) : (
-        <p>Cargando datos...</p>
-      )}
+      <div className="chart-container">
+        {chartData ? (
+          <Chart ref={chartRef} type="bar" data={chartData} options={chartData.options} />
+        ) : (
+          <p>Cargando datos...</p>
+        )}
+      </div>
+
+      <style>{`
+        .normalidad-plot {
+          width: 100%;
+          max-width: 800px;
+          background-color: white;
+          text-align: center;
+          margin: auto;
+          font-family: Arial, sans-serif;
+          padding: 20px;
+          border-radius: 10px;
+          box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+        }
+
+        .controls {
+          margin-bottom: 20px;
+        }
+
+        select {
+          padding: 8px 12px;
+          border-radius: 5px;
+          border: 1px solid #d9d9d9;
+          font-size: 14px;
+          cursor: pointer;
+          background-color: #fff;
+        }
+
+        .stats-container {
+          text-align: left;
+          margin-bottom: 20px;
+          padding: 15px;
+          background: #f9f9f9;
+          border-radius: 8px;
+          box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+        }
+
+        .chart-container {
+          width: 100%;
+          height: 400px;
+          max-height: 400px;
+          overflow: hidden;
+        }
+
+        .download-btn {
+          background-color: #1890ff;
+          color: white;
+          border: none;
+          padding: 10px 15px;
+          font-size: 16px;
+          cursor: pointer;
+          border-radius: 5px;
+          transition: 0.3s;
+          margin-top: 15px;
+          margin-left: 10px;
+        }
+
+        .download-btn:hover {
+          background-color: #40a9ff;
+        }
+      `}</style>
     </div>
   );
 };
