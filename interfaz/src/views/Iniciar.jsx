@@ -322,58 +322,70 @@ function Inicio() {
       whiten: selectedWhiten,
       svd_solver: selectedSVD_solver,
       random_state: selectedRandom_state,
-    }
+    };
+    
     console.log('Json a enviar:', data);
-    //enviar a /pca/test, enviar e l data
-    const response = await fetch(`${BACKEND}/pca/test`, {
-      method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify(data),
-    });
-    //obtener el status code
-    const statusCode = response.status;
-    if (statusCode !== 200) {
-      message.error('Error al ejecutar el análisis de componentes principales.');
-      return;
-    }
-    if (statusCode === 200) {
-      //obtener la data del response
-      const data = await response.json();
-      console.log('resultados PCA: ', data);
-      //alert('Resultados del análisis de componentes principales: ' + JSON.stringify(data));
-      //Mostrar un modal
-
-      setResultsPCA(data);
-
-      //esperar 2 segundos
-      setTimeout(() => {
-        //mostrar el modal
-        console.log('mostrar modal');
-        Swal.fire({
-          title: 'Resultados del análisis de componentes principales',
-          html: `
-        <p>Varianza explicada:</p>
-        <p>${data.variance_ratio}</p>
-        <p>Componentes principales:</p>
-        <p>${data.n_components}</p>
-        <p>Whiten:</p>
-        <p>${data.whiten}</p>
-        <p>SVD Solver:</p>
-        <p>${data.svd_solver}</p>
-        <p>Random State:</p>
-        <p>${data.random_state}</p>
-        `,
-          confirmButtonText: 'Cerrar'
-        });
-
-      }, 1000);
-    }
-
-
   
+    // Mostrar Swal de "Calculando..."
+    Swal.fire({
+      title: 'Calculando...',
+      text: 'Por favor, espera mientras se ejecuta el análisis.',
+      allowOutsideClick: false,
+      didOpen: () => {
+        Swal.showLoading();
+      }
+    });
+  
+    try {
+      const response = await fetch(`${BACKEND}/pca/test`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(data),
+      });
+  
+      const statusCode = response.status;
+      
+      if (statusCode !== 200) {
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Error al ejecutar el análisis de componentes principales.',
+        });
+        return;
+      }
+  
+      const resultData = await response.json();
+      console.log('Resultados PCA: ', resultData);
+  
+      setResultsPCA(resultData);
+  
+      // Reemplazar el Swal de carga con los resultados
+      Swal.fire({
+        title: 'Resultados del análisis de componentes principales',
+        html: `
+          <p>Varianza explicada:</p>
+          <p>${resultData.variance_ratio}</p>
+          <p>Componentes principales:</p>
+          <p>${resultData.n_components}</p>
+          <p>Whiten:</p>
+          <p>${resultData.whiten}</p>
+          <p>SVD Solver:</p>
+          <p>${resultData.svd_solver}</p>
+          <p>Random State:</p>
+          <p>${resultData.random_state}</p>
+        `,
+        confirmButtonText: 'Cerrar'
+      });
+  
+    } catch (error) {
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Ocurrió un error inesperado.',
+      });
+    }
   };
+  
   // ##########################################################################################################################  VISTAS
   const steps = [
     { //-------------------------------------------------------------------------------------------------------- Carga de CSV 1
@@ -482,6 +494,7 @@ function Inicio() {
             <Button type="primary" onClick={next}>
               Continuar
             </Button>
+           
           </div>
         </Form>
       ),

@@ -1,10 +1,10 @@
-# minima_distancia.py
 import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold, StratifiedKFold, LeaveOneOut
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
+from sklearn.preprocessing import StandardScaler  # Importamos el StandardScaler
 
-class MinimaDistanciaClassifier_multiclase:
+class CMD_MULTICLASE_CPU:
     def __init__(self, distancia_type='euclidiana'):
         self.distancia_type = distancia_type
 
@@ -72,13 +72,17 @@ class MinimaDistanciaClassifier_multiclase:
         y = df[etiquetas[0]].values
         class_labels = np.unique(y)
 
+        # Normalización de las características seleccionadas (solo las columnas numéricas)
+        scaler = StandardScaler()
+        X_scaled = scaler.fit_transform(X)
+
         results = {
-            'K-Folds': self.k_fold_validation(X, y),
-            'Stratified K-Folds': self.stratified_k_fold_validation(X, y),
-            'Leave-One-Out': self.leave_one_out_validation(X, y)
+            'K-Folds': self.k_fold_validation(X_scaled, y),
+            'Stratified K-Folds': self.stratified_k_fold_validation(X_scaled, y),
+            'Leave-One-Out': self.leave_one_out_validation(X_scaled, y)
         }
 
-        y_pred = self.minimum_distance_classifier(X, y, X)
+        y_pred = self.minimum_distance_classifier(X_scaled, y, X_scaled)
         conf_matrix = confusion_matrix(y, y_pred, labels=class_labels)
         conf_matrix_dict = {
             class_labels[i]: {class_labels[j]: int(conf_matrix[i, j]) for j in range(len(class_labels))}

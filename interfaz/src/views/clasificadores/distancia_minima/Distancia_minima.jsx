@@ -84,95 +84,112 @@ function DistanciaMinima() {
         "data": data_bd,
       };
   
+      // Mostrar Swal de "Cargando..."
+      Swal.fire({
+        title: 'Clasificando...',
+        text: 'Por favor, espera mientras se realiza la clasificación.',
+        allowOutsideClick: false,
+        didOpen: () => {
+          Swal.showLoading();
+        }
+      });
+  
       const response = await fetch(BACKEND + '/clasificador/minima_distancia', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(jsonSend),
       });
   
-      if (response.ok) {
-        const responseData = await response.json();
-        console.log('Respuesta de la API:', responseData);
-  
-        // Crear HTML de la tabla de confusión y métricas
-        const getConfusionMatrixHtml = (confusionMatrix) => {
-          let confusionMatrixHtml = `
-            <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); font-family: 'Arial', sans-serif; text-align: center;">
-              <thead style="background-color: #f7f7f7; color: #333;">
-                <tr>
-                  <th style="padding: 10px 15px; font-weight: bold;">Clase</th>
-          `;
-          // Agregar las cabeceras de las clases
-          Object.keys(confusionMatrix).forEach(className => {
-            confusionMatrixHtml += `<th style="padding: 10px 15px; font-weight: bold; color: #4CAF50;">${className}</th>`;
-          });
-          confusionMatrixHtml += '</tr></thead><tbody>';
-  
-          // Agregar las filas de la matriz de confusión
-          Object.entries(confusionMatrix).forEach(([rowClass, rowValues]) => {
-            confusionMatrixHtml += `<tr style="background-color: #f9f9f9;">`;
-            confusionMatrixHtml += `<th style="padding: 10px 15px; font-weight: bold; color: #555;">${rowClass}</th>`;
-            Object.values(rowValues).forEach(value => {
-              confusionMatrixHtml += `<td style="padding: 10px 15px; color: #555; background-color: #fff;">${value}</td>`;
-            });
-            confusionMatrixHtml += '</tr>';
-          });
-          confusionMatrixHtml += '</tbody></table>';
-          return confusionMatrixHtml;
-        };
-  
-        // Diseño de la ventana con 4 columnas
-        Swal.fire({
-          title: `${classificationType === "biclase" ? "Clasificación Biclase" : "Clasificación Multiclase"} - Distancia: ${form.getFieldValue('distanceType')}`,
-          html: `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px;">
-              ${['Sin_Prueba_Estadistica', 'K-Folds', 'Stratified K-Folds', 'Leave-One-Out'].map(method => {
-                const metrics = responseData[method];
-                const confusionMatrixHtml = getConfusionMatrixHtml(metrics['Matriz de Confusión']);
-                return `
-                  <div style="width: 22%; padding: 10px; border-radius: 8px; background-color: #f3f3f3;">
-                    <h3>${method.replace(/_/g, ' ')}</h3>
-                    <p><strong>Precisión:</strong> ${metrics['Precisión']}</p>
-                    <p><strong>Exactitud:</strong> ${metrics['Exactitud']}</p>
-                    <p><strong>Sensibilidad (Recall):</strong> ${metrics['Sensibilidad (Recall)']}</p>
-                    <p><strong>Especificidad:</strong> ${metrics['Especificidad']}</p>
-                    <p><strong>Matriz de Confusión:</strong></p>
-                    ${confusionMatrixHtml}
-                  </div>
-                `;
-              }).join('')}
-            </div>
-          `,
-          showCloseButton: true,
-          width: '80%',
-          padding: '20px',
-          showCancelButton: true,
-          cancelButtonText: 'Cancelar',
-          confirmButtonText: 'OK',
-          cancelButtonColor: '#d33',
-          confirmButtonColor: '#3085d6',
-          preConfirm: () => new Promise((resolve) => resolve()),
-          footer: `
-            <button id="copy-json-btn" class="swal2-styled swal2-confirm swal2-default-outline" style="padding: 8px 16px; border-radius: 4px; border: none; background-color: #4CAF50; color: white; font-weight: bold; cursor: pointer;">
-              Copiar JSON
-            </button>
-          `
-        }).then((result) => {
-          if (result.isConfirmed) {
-            message.success('Clasificación exitosa!');
-          }
-        });
-        
-  
-      } else {
+      if (!response.ok) {
         const errorData = await response.json();
         console.error('Error de la API:', errorData);
-        message.error('Error en la clasificación.');
+        Swal.fire({
+          icon: 'error',
+          title: 'Error',
+          text: 'Error en la clasificación.',
+        });
+        return;
       }
+  
+      const responseData = await response.json();
+      console.log('Respuesta de la API:', responseData);
+  
+      // Función para crear la tabla de confusión
+      const getConfusionMatrixHtml = (confusionMatrix) => {
+        let confusionMatrixHtml = `
+          <table style="width: 100%; border-collapse: collapse; border: 1px solid #ddd; border-radius: 8px; box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1); font-family: 'Arial', sans-serif; text-align: center;">
+            <thead style="background-color: #f7f7f7; color: #333;">
+              <tr>
+                <th style="padding: 10px 15px; font-weight: bold;">Clase</th>
+        `;
+        Object.keys(confusionMatrix).forEach(className => {
+          confusionMatrixHtml += `<th style="padding: 10px 15px; font-weight: bold; color: #4CAF50;">${className}</th>`;
+        });
+        confusionMatrixHtml += '</tr></thead><tbody>';
+  
+        Object.entries(confusionMatrix).forEach(([rowClass, rowValues]) => {
+          confusionMatrixHtml += `<tr style="background-color: #f9f9f9;">`;
+          confusionMatrixHtml += `<th style="padding: 10px 15px; font-weight: bold; color: #555;">${rowClass}</th>`;
+          Object.values(rowValues).forEach(value => {
+            confusionMatrixHtml += `<td style="padding: 10px 15px; color: #555; background-color: #fff;">${value}</td>`;
+          });
+          confusionMatrixHtml += '</tr>';
+        });
+        confusionMatrixHtml += '</tbody></table>';
+        return confusionMatrixHtml;
+      };
+  
+      // Reemplazar el Swal de carga con los resultados
+      Swal.fire({
+        title: `${classificationType === "biclase" ? "Clasificación Biclase" : "Clasificación Multiclase"} - Distancia: ${form.getFieldValue('distanceType')}`,
+        html: `
+          <div style="display: flex; justify-content: space-between; margin-bottom: 20px; font-size: 12px;">
+            ${['Sin_Prueba_Estadistica', 'K-Folds', 'Stratified K-Folds', 'Leave-One-Out'].map(method => {
+              const metrics = responseData[method];
+              const confusionMatrixHtml = getConfusionMatrixHtml(metrics['Matriz de Confusión']);
+              return `
+                <div style="width: 22%; padding: 10px; border-radius: 8px; background-color: #f3f3f3;">
+                  <h3>${method.replace(/_/g, ' ')}</h3>
+                  <p><strong>Precisión:</strong> ${metrics['Precisión']}</p>
+                  <p><strong>Exactitud:</strong> ${metrics['Exactitud']}</p>
+                  <p><strong>Sensibilidad (Recall):</strong> ${metrics['Sensibilidad (Recall)']}</p>
+                  <p><strong>Especificidad:</strong> ${metrics['Especificidad']}</p>
+                  <p><strong>Matriz de Confusión:</strong></p>
+                  ${confusionMatrixHtml}
+                </div>
+              `;
+            }).join('')}
+          </div>
+        `,
+        showCloseButton: true,
+        width: '80%',
+        padding: '20px',
+        showCancelButton: true,
+        cancelButtonText: 'Cancelar',
+        confirmButtonText: 'OK',
+        cancelButtonColor: '#d33',
+        confirmButtonColor: '#3085d6',
+        footer: `
+          <button id="copy-json-btn" class="swal2-styled swal2-confirm swal2-default-outline" style="padding: 8px 16px; border-radius: 4px; border: none; background-color: #4CAF50; color: white; font-weight: bold; cursor: pointer;">
+            Copiar JSON
+          </button>
+        `
+      }).then((result) => {
+        if (result.isConfirmed) {
+          message.success('Clasificación exitosa!');
+        }
+      });
+  
     } catch (error) {
       console.error('Error al validar el formulario:', error);
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Ocurrió un error inesperado.',
+      });
     }
   };
+  
 
 
   return (

@@ -7,12 +7,25 @@ from fastapi.middleware.cors import CORSMiddleware
 import pandas as pd
 from sklearn.decomposition import PCA
 from sklearn.preprocessing import StandardScaler
-from clasificadores.minima_distancia.minima_distancia_multiclase import MinimaDistanciaClassifier_multiclase
-from clasificadores.minima_distancia.minima_distancia_biclase import MinimaDistanciaClassifier_biclase
+
+# importar clasificadores
+from clasificadores.minima_distancia.GPU.GPU_CMD_MULTICLASE import CMD_MULTICLASE_GPU
+from clasificadores.minima_distancia.GPU.GPU_CMD_BICLASE import CMD_BICLASE_GPU
+from clasificadores.minima_distancia.CPU.CPU_CMD_BICLASE import CMD_BICLASE_CPU
+from clasificadores.minima_distancia.CPU.CPU_CMD_MULTICLASE import CMD_MULTICLASE_CPU
+import torch
+import time
 
 app = FastAPI()
-classifier_multiclase = MinimaDistanciaClassifier_multiclase()
-classifier_biclase = MinimaDistanciaClassifier_biclase()
+
+#------------- Instancias de los clasificadores MINIMA DISTANCIA
+#----------------------------------------------------- CON GPU
+classifier_MD_MULTICLASE_GPU = CMD_MULTICLASE_GPU()
+classifier_MD_BICLASE_GPU = CMD_BICLASE_GPU()
+
+#----------------------------------------------------- CON CPU
+classifier_MD_MULTICLASE_CPU = CMD_MULTICLASE_CPU()
+classifier_MD_BICLASE_CPU = CMD_BICLASE_CPU()
 
 # Configuración de CORS
 app.add_middleware(
@@ -206,16 +219,82 @@ class MinimaDistanciaModel(BaseModel):
 # Endpoint que recibe el JSON
 @app.post("/clasificador/minima_distancia")
 async def clasificador_minima_distancia(request: MinimaDistanciaModel):
-    if request.type == "biclase":
-        # Crear una instancia del clasificador para clasificación biclase
-        classifier_biclase = MinimaDistanciaClassifier_biclase(distancia_type=request.distancia_type)
-        # Pasar 'selected_class' a la función classify
-        resultados = classifier_biclase.classify(request.data, request.selected_features, request.etiquetas, request.selected_class)
 
-    elif request.type == "multiclase":
-        # Crear una instancia del clasificador para clasificación multiclase
-        classifier_multiclase = MinimaDistanciaClassifier_multiclase(distancia_type=request.distancia_type)
-        # Sin embargo, multiclase no usa 'selected_class'
-        resultados = classifier_multiclase.classify(request.data, request.selected_features, request.etiquetas)
+    # -------------------------------------------------------------------------- DEFINIR EL PROCESADOR A UTILIZAR
+    procesador= 0 # 0 para CPU, 1 para GPU
+    print("Clasificando.....")
 
-    return {"type_classification": request.type, "tipo_distancia": request.distancia_type, **resultados}
+#-------------------------- PROCESAMIENTO EN CPU---------------------------
+    if procesador == 0:
+        if request.type == "biclase":
+            # Crear una instancia del clasificador para clasificación biclase
+            classifier_MD_BICLASE_CPU = CMD_BICLASE_CPU(distancia_type=request.distancia_type)
+            # Pasar 'selected_class' a la función classify
+            resultados = classifier_MD_BICLASE_CPU.classify(request.data, request.selected_features, request.etiquetas, request.selected_class)
+
+        elif request.type == "multiclase":
+            # Crear una instancia del clasificador para clasificación multiclase
+            classifier_MD_MULTICLASE_CPU = CMD_MULTICLASE_CPU(distancia_type=request.distancia_type)
+            # Sin embargo, multiclase no usa 'selected_class'
+            resultados = classifier_MD_MULTICLASE_CPU.classify(request.data, request.selected_features, request.etiquetas)
+
+        return {"type_classification": request.type, "tipo_distancia": request.distancia_type, **resultados}
+
+# -----------------------------PROCESAR CON GPU--------------------------------
+    if procesador == 1:
+        if request.type == "biclase":
+            # Crear una instancia del clasificador para clasificación biclase
+            classifier_MD_BICLASE_GPU = CMD_BICLASE_GPU(distancia_type=request.distancia_type)
+            # Pasar 'selected_class' a la función classify
+            resultados = classifier_MD_BICLASE_GPU.classify(request.data, request.selected_features, request.etiquetas, request.selected_class)
+
+        elif request.type == "multiclase":
+            # Crear una instancia del clasificador para clasificación multiclase
+            classifier_MD_MULTICLASE_GPU = CMD_MULTICLASE_GPU(distancia_type=request.distancia_type)
+            # Sin embargo, multiclase no usa 'selected_class'
+            resultados = classifier_MD_MULTICLASE_GPU.classify(request.data, request.selected_features, request.etiquetas)
+
+        return {"type_classification": request.type, "tipo_distancia": request.distancia_type, **resultados}
+
+
+
+#test
+class TestModel(BaseModel):
+    num1: int
+    num2: int
+
+
+@app.post("/test")
+def test(request: TestModel):
+    print("Se recibieron los números", request.num1, "y", request.num2)
+
+    # Verificar si hay GPU
+    device = "cuda" if torch.cuda.is_available() else "cpu"
+
+    # Mover los números a la GPU y efectuar la suma
+    num1_tensor = torch.tensor(request.num1, dtype=torch.float32, device=device)
+    num2_tensor = torch.tensor(request.num2, dtype=torch.float32, device=device)
+    
+    resultado_tensor = num1_tensor + num2_tensor  # Suma en GPU
+    resultado = resultado_tensor.item()
+
+    # Prueba de rendimiento de la GPU (Multiplicación de matrices grandes)
+    if torch.cuda.is_available():
+        torch.cuda.synchronize()  # Sincronizar antes de la medición
+        start_time = time.time()
+
+        A = torch.randn((15000, 15000), device="cuda")  # Matriz grande en GPU
+        B = torch.randn((15000, 15000), device="cuda")
+        C = torch.matmul(A, B)  # Multiplicación en GPU
+
+        torch.cuda.synchronize()  # Sincronizar después de la medición
+        gpu_time = time.time() - start_time  # Tiempo en segundos
+
+        gpu_name = torch.cuda.get_device_name(0)
+        gpu_memory = torch.cuda.memory_allocated(0) / 1e6  # MB
+        gpu_info = f"GPU: {gpu_name}, Memoria usada: {gpu_memory:.2f} MB, Tiempo de cálculo: {gpu_time:.4f} s"
+    else:
+        gpu_info = "No se detectó GPU."
+
+    print(gpu_info)
+    return {"resultado": resultado, "gpu_info": gpu_info}
