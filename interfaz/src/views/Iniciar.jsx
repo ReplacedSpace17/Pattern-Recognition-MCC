@@ -837,12 +837,15 @@ function Inicio() {
             </Form.Item>
           </div>
 
-          <Form.Item label="SVD Solver">
-            <Select value={selectedSVD_solver} onChange={setSelectedSVD_solver} style={{ width: '100%' }}>
+          <Form.Item label="SVD Solver" >
+            <Select value={selectedSVD_solver} onChange={setSelectedSVD_solver} style={{ width: '100%' }}
+          
+            >
               <Select.Option value="auto">Auto</Select.Option>
               <Select.Option value="full">Full</Select.Option>
               <Select.Option value="randomized">Randomized</Select.Option>
             </Select>
+            
           </Form.Item>
 
           <Form.Item label="Random State">
