@@ -16,8 +16,12 @@ from clasificadores.minima_distancia.CPU.CPU_CMD_MULTICLASE import CMD_MULTICLAS
 import torch
 import time
 
-app = FastAPI()
+# importar clasificadores knn
+from clasificadores.knn.Knn_standard import KNN_STANDARD
+from fastapi.staticfiles import StaticFiles
 
+app = FastAPI()
+app.mount("/static", StaticFiles(directory="static"), name="static")
 #------------- Instancias de los clasificadores MINIMA DISTANCIA
 #----------------------------------------------------- CON GPU
 classifier_MD_MULTICLASE_GPU = CMD_MULTICLASE_GPU()
@@ -26,6 +30,9 @@ classifier_MD_BICLASE_GPU = CMD_BICLASE_GPU()
 #----------------------------------------------------- CON CPU
 classifier_MD_MULTICLASE_CPU = CMD_MULTICLASE_CPU()
 classifier_MD_BICLASE_CPU = CMD_BICLASE_CPU()
+
+# knn
+
 
 # Configuración de CORS
 app.add_middleware(
@@ -257,8 +264,31 @@ async def clasificador_minima_distancia(request: MinimaDistanciaModel):
         return {"type_classification": request.type, "tipo_distancia": request.distancia_type, **resultados}
 
 
+#-------------------------------------------------------------------------------------------------------------- KNN CLASIFICADOR
+class KnnClass(BaseModel):
+    distancia_type: int  # 1: Euclidiana, 2: Manhattan
+    etiquetas: List[str]  # Columnas donde están las etiquetas
+    selectedFeatures: List[str]  # Columnas seleccionadas para entrenar el modelo
+    data: List[Dict[str, Any]]  # Datos del dataset
+    knn_type: int  # 1: KNN normal
 
-#test
+@app.post("/clasificador/knn/standard")
+async def clasificador_knn(request: KnnClass):
+    print("Clasificando con KNN estándar...")
+
+    # ✅ Pasar los parámetros correctamente a la clase KNN_STANDARD
+    classifier_knn_standard = KNN_STANDARD(
+        distancia_type=request.distancia_type,
+        etiquetas=request.etiquetas,
+        selectedFeatures=request.selectedFeatures,
+        data=request.data,
+        knn_type=request.knn_type
+    )
+    resultado = classifier_knn_standard.test()
+    return {"message": "Clasificación completada", "resultado": resultado}
+
+
+########################################################################################33  test
 class TestModel(BaseModel):
     num1: int
     num2: int

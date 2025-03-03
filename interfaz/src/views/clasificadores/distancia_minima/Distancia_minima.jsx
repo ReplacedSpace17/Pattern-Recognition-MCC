@@ -10,12 +10,12 @@ const { Header, Content, Footer } = Layout;
 function DistanciaMinima() {
   const navigate = useNavigate();
   const [form] = Form.useForm();
+
+  const location = useLocation();
+  const { selectedNewFeatures_PCA, selectedModel, data_bd, etiquetas } = location.state || {};
   const [selectedClasses, setSelectedClasses] = useState([]);
   const [classificationType, setClassificationType] = useState("biclase");
   const [caracteristicas, setSelectedFeatures] = useState([]);
-  const location = useLocation();
-  const { selectedNewFeatures_PCA, selectedModel, data_bd, etiquetas } = location.state || {};
-
   const handleCheckboxCaracteristicasChange = (e, col) => {
     const checked = e.target.checked;
     if (checked) {

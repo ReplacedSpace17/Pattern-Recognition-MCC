@@ -2,10 +2,7 @@ import numpy as np
 import pandas as pd
 from sklearn.model_selection import KFold, StratifiedKFold, LeaveOneOut
 from sklearn.metrics import confusion_matrix, accuracy_score, precision_score, recall_score, f1_score
-from sklearn.preprocessing import StandardScaler
-import time
-import resource  # Para medir el uso de recursos en sistemas Unix-like
-import psutil  # Para medir el uso de recursos en sistemas multiplataforma
+from sklearn.preprocessing import StandardScaler  # Importamos el StandardScaler
 
 class CMD_MULTICLASE_CPU:
     def __init__(self, distancia_type='euclidiana'):
@@ -40,7 +37,6 @@ class CMD_MULTICLASE_CPU:
         return np.array(y_pred)
 
     def k_fold_validation(self, X, y, k=5):
-        start_time = time.time()
         kf = KFold(n_splits=k)
         accuracy_scores = []
         for train_index, test_index in kf.split(X):
@@ -48,11 +44,9 @@ class CMD_MULTICLASE_CPU:
             y_train, y_test = y[train_index], y[test_index]
             y_pred = self.minimum_distance_classifier(X_train, y_train, X_test)
             accuracy_scores.append(accuracy_score(y_test, y_pred))
-        end_time = time.time()
-        return np.mean(accuracy_scores), end_time - start_time
+        return np.mean(accuracy_scores)
 
     def stratified_k_fold_validation(self, X, y, k=5):
-        start_time = time.time()
         skf = StratifiedKFold(n_splits=k)
         accuracy_scores = []
         for train_index, test_index in skf.split(X, y):
@@ -60,11 +54,9 @@ class CMD_MULTICLASE_CPU:
             y_train, y_test = y[train_index], y[test_index]
             y_pred = self.minimum_distance_classifier(X_train, y_train, X_test)
             accuracy_scores.append(accuracy_score(y_test, y_pred))
-        end_time = time.time()
-        return np.mean(accuracy_scores), end_time - start_time
+        return np.mean(accuracy_scores)
 
     def leave_one_out_validation(self, X, y):
-        start_time = time.time()
         loo = LeaveOneOut()
         accuracy_scores = []
         for train_index, test_index in loo.split(X):
@@ -72,17 +64,7 @@ class CMD_MULTICLASE_CPU:
             y_train, y_test = y[train_index], y[test_index]
             y_pred = self.minimum_distance_classifier(X_train, y_train, X_test)
             accuracy_scores.append(accuracy_score(y_test, y_pred))
-        end_time = time.time()
-        return np.mean(accuracy_scores), end_time - start_time
-
-    def get_resource_usage(self):
-        # Uso de memoria en bytes
-        memory_usage_bytes = resource.getrusage(resource.RUSAGE_SELF).ru_maxrss
-        # Convertir a MB
-        memory_usage_mb = memory_usage_bytes / (1024 * 1024)
-        # Uso de CPU en segundos
-        cpu_usage = resource.getrusage(resource.RUSAGE_SELF).ru_utime + resource.getrusage(resource.RUSAGE_SELF).ru_stime
-        return memory_usage_mb, cpu_usage
+        return np.mean(accuracy_scores)
 
     def classify(self, data, selected_features, etiquetas):
         df = pd.DataFrame(data)
@@ -94,17 +76,11 @@ class CMD_MULTICLASE_CPU:
         scaler = StandardScaler()
         X_scaled = scaler.fit_transform(X)
 
-        # Medir tiempo y recursos para K-Fold
-        k_fold_accuracy, k_fold_time = self.k_fold_validation(X_scaled, y)
-        k_fold_memory, k_fold_cpu = self.get_resource_usage()
-
-        # Medir tiempo y recursos para Stratified K-Fold
-        stratified_k_fold_accuracy, stratified_k_fold_time = self.stratified_k_fold_validation(X_scaled, y)
-        stratified_k_fold_memory, stratified_k_fold_cpu = self.get_resource_usage()
-
-        # Medir tiempo y recursos para Leave-One-Out
-        loo_accuracy, loo_time = self.leave_one_out_validation(X_scaled, y)
-        loo_memory, loo_cpu = self.get_resource_usage()
+        results = {
+            'K-Folds': self.k_fold_validation(X_scaled, y),
+            'Stratified K-Folds': self.stratified_k_fold_validation(X_scaled, y),
+            'Leave-One-Out': self.leave_one_out_validation(X_scaled, y)
+        }
 
         y_pred = self.minimum_distance_classifier(X_scaled, y, X_scaled)
         conf_matrix = confusion_matrix(y, y_pred, labels=class_labels)
@@ -126,32 +102,23 @@ class CMD_MULTICLASE_CPU:
             "K-Folds": {
                 "Matriz de Confusión": conf_matrix_dict,
                 "Precisión": precision_score(y, y_pred, average='weighted'),
-                "Exactitud": k_fold_accuracy,
+                "Exactitud": accuracy_score(y, y_pred),
                 "Sensibilidad (Recall)": recall_score(y, y_pred, average='weighted'),
-                "Especificidad": f1_score(y, y_pred, average='weighted'),
-                "Tiempo de Procesamiento (s)": k_fold_time,
-                "Uso de Memoria (MB)": k_fold_memory,  # Memoria en MB
-                "Uso de CPU (s)": k_fold_cpu
+                "Especificidad": f1_score(y, y_pred, average='weighted')
             },
             "Stratified K-Folds": {
                 "Matriz de Confusión": conf_matrix_dict,
                 "Precisión": precision_score(y, y_pred, average='weighted'),
-                "Exactitud": stratified_k_fold_accuracy,
+                "Exactitud": accuracy_score(y, y_pred),
                 "Sensibilidad (Recall)": recall_score(y, y_pred, average='weighted'),
-                "Especificidad": f1_score(y, y_pred, average='weighted'),
-                "Tiempo de Procesamiento (s)": stratified_k_fold_time,
-                "Uso de Memoria (MB)": stratified_k_fold_memory,  # Memoria en MB
-                "Uso de CPU (s)": stratified_k_fold_cpu
+                "Especificidad": f1_score(y, y_pred, average='weighted')
             },
             "Leave-One-Out": {
                 "Matriz de Confusión": conf_matrix_dict,
                 "Precisión": precision_score(y, y_pred, average='weighted'),
-                "Exactitud": loo_accuracy,
+                "Exactitud": accuracy_score(y, y_pred),
                 "Sensibilidad (Recall)": recall_score(y, y_pred, average='weighted'),
-                "Especificidad": f1_score(y, y_pred, average='weighted'),
-                "Tiempo de Procesamiento (s)": loo_time,
-                "Uso de Memoria (MB)": loo_memory,  # Memoria en MB
-                "Uso de CPU (s)": loo_cpu
+                "Especificidad": f1_score(y, y_pred, average='weighted')
             }
         }
         return final_results
