@@ -18,6 +18,7 @@ import time
 
 # importar clasificadores knn
 from clasificadores.knn.Knn_standard import KNN_STANDARD
+from clasificadores.knn.Knn_LMNN import KNN_LMNN
 from fastapi.staticfiles import StaticFiles
 
 app = FastAPI()
@@ -275,17 +276,27 @@ class KnnClass(BaseModel):
 @app.post("/clasificador/knn/standard")
 async def clasificador_knn(request: KnnClass):
     print("Clasificando con KNN estándar...")
-
-    # ✅ Pasar los parámetros correctamente a la clase KNN_STANDARD
-    classifier_knn_standard = KNN_STANDARD(
-        distancia_type=request.distancia_type,
-        etiquetas=request.etiquetas,
-        selectedFeatures=request.selectedFeatures,
-        data=request.data,
-        knn_type=request.knn_type
-    )
-    resultado = classifier_knn_standard.test()
-    return {"message": "Clasificación completada", "resultado": resultado}
+    if request.knn_type == 1:
+        # ✅ Pasar los parámetros correctamente a la clase KNN_STANDARD
+        classifier_knn_standard = KNN_STANDARD(
+            distancia_type=request.distancia_type,
+            etiquetas=request.etiquetas,
+            selectedFeatures=request.selectedFeatures,
+            data=request.data,
+            knn_type=request.knn_type
+        )
+        resultado = classifier_knn_standard.test()
+        return {"message": "Clasificación completada", "resultado": resultado}
+    elif request.knn_type == 2:
+        clasificador_knn_LMNN = KNN_LMNN(
+            etiquetas=request.etiquetas,
+            selectedFeatures=request.selectedFeatures,
+            data=request.data,
+            knn_type=request.knn_type
+        )
+        resultado = clasificador_knn_LMNN.run()
+        return {"message": "Clasificación completada", "resultado": resultado}
+        #return {"message": "Clasificación completada", "resultado": resultado}
 
 
 ########################################################################################33  test

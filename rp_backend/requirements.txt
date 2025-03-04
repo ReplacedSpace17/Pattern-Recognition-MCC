@@ -14,12 +14,15 @@ conda-content-trust @ file:///croot/conda-content-trust_1714483159009/work
 conda-libmamba-solver @ file:///croot/conda-libmamba-solver_1727775630457/work/src
 conda-package-handling @ file:///croot/conda-package-handling_1731369017509/work
 conda_package_streaming @ file:///croot/conda-package-streaming_1731366181659/work
+contourpy==1.3.1
 cryptography @ file:///croot/cryptography_1732129644106/work
 cupy-cuda12x==13.3.0
+cycler==0.12.1
 distro @ file:///croot/distro_1714488253808/work
 fastapi==0.115.8
 fastrlock==0.8.3
 filelock==3.17.0
+fonttools==4.56.0
 frozendict @ file:///croot/frozendict_1713194832637/work
 fsspec==2025.2.0
 h11==0.14.0
@@ -28,9 +31,13 @@ Jinja2==3.1.5
 joblib==1.4.2
 jsonpatch @ file:///croot/jsonpatch_1714483231291/work
 jsonpointer==2.1
+kiwisolver==1.4.8
 libmambapy @ file:///croot/mamba-split_1732896306512/work/libmambapy
 MarkupSafe==3.0.2
+matplotlib==3.10.1
+memory-profiler==0.61.0
 menuinst @ file:///croot/menuinst_1731364904452/work
+metric-learn==0.7.0
 mpmath==1.3.0
 networkx==3.4.2
 numpy==2.2.3
@@ -49,12 +56,15 @@ nvidia-nvjitlink-cu12==12.4.127
 nvidia-nvtx-cu12==12.4.127
 packaging @ file:///croot/packaging_1720101850331/work
 pandas==2.2.3
+pillow==11.1.0
 platformdirs @ file:///work/perseverance-python-buildout/croot/platformdirs_1701732573265/work
 pluggy @ file:///croot/pluggy_1733169602837/work
+psutil==7.0.0
 pycosat @ file:///croot/pycosat_1714510623388/work
 pycparser @ file:///tmp/build/80754af9/pycparser_1636541352034/work
 pydantic==2.10.6
 pydantic_core==2.27.2
+pyparsing==3.2.1
 PySocks @ file:///work/perseverance-python-buildout/croot/pysocks_1698845478203/work
 python-dateutil==2.9.0.post0
 pytz==2025.1

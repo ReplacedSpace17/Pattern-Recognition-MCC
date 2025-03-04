@@ -154,6 +154,9 @@ function DistanciaMinima() {
                   <p><strong>Exactitud:</strong> ${metrics['Exactitud']}</p>
                   <p><strong>Sensibilidad (Recall):</strong> ${metrics['Sensibilidad (Recall)']}</p>
                   <p><strong>Especificidad:</strong> ${metrics['Especificidad']}</p>
+                  <p><strong>Tiempo(s):</strong> ${metrics['Tiempo de Procesamiento (s)']}</p>
+                  <p><strong>Uso de memoria(MB):</strong> ${metrics['Uso de Memoria (MB)']}</p>
+
                   <p><strong>Matriz de Confusión:</strong></p>
                   ${confusionMatrixHtml}
                 </div>

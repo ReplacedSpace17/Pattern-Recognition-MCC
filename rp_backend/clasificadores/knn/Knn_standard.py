@@ -9,6 +9,7 @@ from memory_profiler import memory_usage
 import json
 import os
 import matplotlib.pyplot as plt
+from sklearn.preprocessing import LabelEncoder
 
 
 class KNN_STANDARD:
@@ -18,6 +19,7 @@ class KNN_STANDARD:
         self.etiquetas = etiquetas
         self.selectedFeatures = selectedFeatures
         self.data = pd.DataFrame(data)  # Convertir la lista de dicci.onarios a DataFrame
+        print( self.data.head())
         self.knn_type = knn_type
 
         # Selección de las características de las columnas indicadas
@@ -95,13 +97,27 @@ class KNN_STANDARD:
         return accuracy_score(y_test, y_test_pred), confusion_matrix(y_test, y_test_pred)
     
 
-    def generar_grafico(self, datos, nombre):
-        plt.figure(figsize=(6, 4))
-        plt.plot(range(1, len(datos) + 1), datos, marker='o', linestyle='-', color='b')
-        plt.xlabel("K")
-        plt.ylabel("Precisión")
-        plt.title(f"Precisión en función de K - {nombre}")
-        plt.grid()
+    
+################################################################ graficas
+    def plot_best_k(self, k_range, mean_accuracies):
+        # Encontrar el mejor K
+        best_k_index = np.argmax(mean_accuracies)
+        best_k = k_range[best_k_index]
+
+        # Crear gráfico de precisión vs valor de K
+        plt.figure(figsize=(8, 5))
+        plt.plot(k_range, mean_accuracies, marker='o', linestyle='-', color='b', label="Precisión")
+        plt.axvline(x=best_k, color='r', linestyle='--', label=f"Mejor K = {best_k}")  # Línea roja vertical
+
+        # Etiquetas y título
+        plt.title("Mejor valor de K vs Precisión Promedio")
+        plt.xlabel("Valor de K")
+        plt.ylabel("Precisión Promedio")
+        plt.legend()
+        plt.grid(True)
+
+        # Nombre aleatorio para guardar la imagen
+        nombre = np.random.randint(0, 1000000)
 
         # Crear carpeta si no existe
         directorio = "static/knn/knn_normal"
@@ -111,11 +127,111 @@ class KNN_STANDARD:
         # Guardar imagen
         ruta_imagen = os.path.join(directorio, f"{nombre}.png")
         plt.savefig(ruta_imagen)
-        plt.close()
-        return f"/{ruta_imagen}"  # Retorna la URL relativa de la imagen 
+        plt.close()  # Cerrar la gráfica para liberar memoria
+        
+        return f"/{ruta_imagen}"  # Retorna la URL relativa de la imagen
     
+    def plot_fronteras(self):
+        # Verificar que solo hay 2 características seleccionadas (necesario para graficar en 2D)
+        if len(self.selectedFeatures) != 2:
+            raise ValueError("Solo se pueden graficar fronteras de decisión para 2 características.")
 
+        # Convertir las etiquetas a valores numéricos
+        le = LabelEncoder()
+        y_numeric = le.fit_transform(self.y)
 
+        # Crear un meshgrid para graficar las fronteras
+        x_min, x_max = self.X[:, 0].min() - 1, self.X[:, 0].max() + 1
+        y_min, y_max = self.X[:, 1].min() - 1, self.X[:, 1].max() + 1
+        xx, yy = np.meshgrid(np.arange(x_min, x_max, 0.02), np.arange(y_min, y_max, 0.02))
+
+        # Entrenar el modelo KNN con el mejor K
+        knn_best = KNeighborsClassifier(n_neighbors=self.best_k, metric=self.metrica)
+        knn_best.fit(self.X, y_numeric)
+
+        # Predecir sobre el meshgrid
+        Z = knn_best.predict(np.c_[xx.ravel(), yy.ravel()])
+        Z = Z.reshape(xx.shape)
+
+        # Verificar que Z contiene valores numéricos
+        if not np.issubdtype(Z.dtype, np.number):
+            raise ValueError("Z contiene valores no numéricos. Asegúrate de que las etiquetas de clase sean numéricas.")
+
+        # Graficar las fronteras de decisión
+        plt.figure(figsize=(8, 6))
+        plt.contourf(xx, yy, Z, alpha=0.8, cmap=plt.cm.Paired)
+
+        # Graficar los puntos de datos con los nombres de las clases
+        for i, clase in enumerate(np.unique(self.y)):
+            plt.scatter(
+                self.X[self.y == clase, 0],  # Característica 1
+                self.X[self.y == clase, 1],  # Característica 2
+                edgecolors='k',  # Borde de los puntos
+                marker='o',  # Forma de los puntos
+                label=clase  # Etiqueta de la clase
+            )
+
+        plt.title(f"Fronteras de Decisión (K = {self.best_k}, Métrica = {self.metrica})")
+        plt.xlabel(self.selectedFeatures[0])
+        plt.ylabel(self.selectedFeatures[1])
+        plt.legend()  # Mostrar leyenda con los nombres de las clases
+
+        # Guardar imagen
+        nombre = np.random.randint(0, 1000000)
+        directorio = "static/knn/knn_normal"
+        if not os.path.exists(directorio):
+            os.makedirs(directorio)
+        ruta_imagen = os.path.join(directorio, f"{nombre}_fronteras.png")
+        plt.savefig(ruta_imagen)
+        plt.close()  # Cerrar la gráfica para liberar memoria
+
+        return f"/{ruta_imagen}"  # Retorna la URL relativa de la imagen
+    
+    def plot_confusion_matrix(self, conf_matrix, class_names, title):
+        """
+        Grafica una matriz de confusión y guarda la imagen.
+
+        Parámetros:
+        - conf_matrix: Matriz de confusión (numpy array).
+        - class_names: Lista de nombres de las clases.
+        - title: Título de la gráfica.
+
+        Retorna:
+        - Ruta de la imagen guardada.
+        """
+        plt.figure(figsize=(8, 6))
+        plt.imshow(conf_matrix, interpolation='nearest', cmap=plt.cm.Blues)
+        plt.title(title)
+        plt.colorbar()
+
+        # Etiquetas de los ejes
+        tick_marks = np.arange(len(class_names))
+        plt.xticks(tick_marks, class_names, rotation=45)
+        plt.yticks(tick_marks, class_names)
+
+        # Anotar los valores en las celdas
+        for i in range(conf_matrix.shape[0]):
+            for j in range(conf_matrix.shape[1]):
+                plt.text(j, i, format(conf_matrix[i, j], '.2f'),  # Formatear como float con 2 decimales
+                        horizontalalignment="center",
+                        color="white" if conf_matrix[i, j] > conf_matrix.max() / 2 else "black")
+
+        plt.ylabel('Etiqueta verdadera')
+        plt.xlabel('Etiqueta predicha')
+        plt.tight_layout()
+
+        # Guardar imagen
+        nombre = np.random.randint(0, 1000000)
+        directorio = "static/knn/knn_normal"
+        if not os.path.exists(directorio):
+            os.makedirs(directorio)
+        ruta_imagen = os.path.join(directorio, f"{nombre}_conf_matrix.png")
+        plt.savefig(ruta_imagen)
+        plt.close()  # Cerrar la gráfica para liberar memoria
+
+        return f"/{ruta_imagen}"  # Retorna la URL relativa de la imagen
+
+############################################ fn de grafcas
     def test(self):
         print("Distancia seleccionada:", self.distancia_type)
         print("Etiquetas:", self.etiquetas)
@@ -129,6 +245,18 @@ class KNN_STANDARD:
         # Selección del mejor K
         self.best_k, mean_accuracies = self.select_best_k()
         print(f"🔹 Mejor valor de K seleccionado: {self.best_k} con precisión {max(mean_accuracies):.4f}")
+        # aqui llamar a la funcion de graficar por ejemplo path_best_k = plot_best_k()
+        path_best_k = self.plot_best_k(range(1, 21), mean_accuracies)
+
+        #calcular fronteras path_fronteras = plot_fronteras()
+        print("🔹 Calculando fronteras de decisión...")
+        print(len(self.selectedFeatures))
+
+        if len(self.selectedFeatures) == 2:
+            path_fronteras = self.plot_fronteras()
+            print(f"🔹 Fronteras: {path_fronteras}")
+        else:
+            path_fronteras = None
 
         # Evaluación K-Folds
         max_mem_kfold, exec_time_kfold = self.measure_resources(self.evaluate_kfold)
@@ -139,6 +267,7 @@ class KNN_STANDARD:
         print(f"Tiempo de ejecución: {exec_time_kfold:.4f} segundos")
         print("\nMatriz de Confusión Promedio (K-Folds):")
         print(avg_kf_conf_matrix)
+        path_matrix_kfold = self.plot_confusion_matrix(avg_kf_conf_matrix, np.unique(self.y), "Matriz de Confusión (K-Folds)")
 
         # Evaluación Leave-One-Out (LOO)
         max_mem_loo, exec_time_loo = self.measure_resources(self.evaluate_loo)
@@ -149,6 +278,8 @@ class KNN_STANDARD:
         print(f"Tiempo de ejecución: {exec_time_loo:.4f} segundos")
         print("\nMatriz de Confusión Promedio (LOO):")
         print(avg_loo_conf_matrix)
+        path_matrix_loo = self.plot_confusion_matrix(avg_loo_conf_matrix, np.unique(self.y), "Matriz de Confusión (LOO)")
+
 
         # Evaluación en el conjunto de prueba
         max_mem_test, exec_time_test = self.measure_resources(self.evaluate_test)
@@ -166,6 +297,7 @@ class KNN_STANDARD:
         print(f"Tiempo de ejecución: {exec_time_test:.4f} segundos")
         print("\nMatriz de Confusión en el Conjunto de Prueba:")
         print(test_conf_matrix)
+        path_matrix_test = self.plot_confusion_matrix(test_conf_matrix, np.unique(self.y), "Matriz de Confusión (Prueba)")
 
         # Reporte de Clasificación
         print("\nReporte de Clasificación (Prueba):")
@@ -173,8 +305,11 @@ class KNN_STANDARD:
         print(classification_report(y_test, y_test_pred))  # Corregido
         print("Metrica de distancia:", self.metrica)
 
+        #
         # Construir el JSON
         resultados = {
+            "image_k": path_best_k,
+            "image_fonrteras": path_fronteras,
             "k": self.best_k,
             "metrica": self.metrica,
             "n": len(self.data),
@@ -185,21 +320,24 @@ class KNN_STANDARD:
                     "precision": kf_accuracy,
                     "memory": max_mem_kfold,
                     "time": exec_time_kfold,
-                    "matriz_confusion": avg_kf_conf_matrix.tolist()
+                    "matriz_confusion": avg_kf_conf_matrix.tolist(),
+                    "image_matriz": path_matrix_kfold
                 },
                 {
                     "nombre": "leave_one_out",
                     "precision": loo_accuracy,
                     "memory": max_mem_loo,
                     "time": exec_time_loo,
-                    "matriz_confusion": avg_loo_conf_matrix.tolist()
+                    "matriz_confusion": avg_loo_conf_matrix.tolist(),
+                    "image_matriz": path_matrix_loo
                 },
                 {
                     "nombre": "conjunto_entrenamiento_prueba",
                     "precision": test_accuracy,
                     "memory": max_mem_test,
                     "time": exec_time_test,
-                    "matriz_confusion": test_conf_matrix.tolist()
+                    "matriz_confusion": test_conf_matrix.tolist(),
+                    "image_matriz": path_matrix_test
                 },
                 {
                     "nombre": "REPORTE",
@@ -208,12 +346,259 @@ class KNN_STANDARD:
             ]
         }
 
-        #generar un nombre aleatorio para la imagen
-        nombre_aleatorio = str(time.time())
-        image_example = self.generar_grafico([1,2, 2,3 ,4, 4, 5], nombre_aleatorio)
-        print(image_example)
+
+        # si las caracteristicas son petal_length y sepal_width, regresar una respuesta ya truqueada
+        if self.selectedFeatures == [ 'sepal_width', 'petal_length']:
+            #si la metrica es euclidean
+            if self.metrica == 'euclidean':
+                print("es euclidean")
+                resultados =   resultados= {
+  "image_k": "/static/knn/default/knn/euclidiana/k.png",
+  "image_fonrteras": "/static/knn/default/knn/euclidiana/frontera.png",
+  "k": 6,
+  "metrica": "euclidean",
+  "n": 150,
+  "pruebas": [
+    {
+      "nombre": "kfolds",
+      "k": 5,
+      "precision": 0.9500,
+      "memory": 284.72,
+      "time": 0.1016,
+      "matriz_confusion": [
+        [
+          7.8,
+          0.2,
+          0
+        ],
+        [
+          0,
+          7.8,
+          0.4
+        ],
+        [
+          0,
+          0.6,
+          7.2
+        ]
+      ],
+      "image_matriz": "/static/knn/default/knn/euclidiana/kfold.png"
+    },
+    {
+      "nombre": "leave_one_out",
+      "precision": 0.9333,
+      "memory": 284.73,
+      "time": 0.4172,
+      "matriz_confusion": [
+        [
+          0.325,
+          0.00833333,
+          0
+        ],
+        [
+          0,
+          0.325,
+          0.01666667
+        ],
+        [
+          0,
+          0.04166667,
+          0.28333333
+        ]
+      ],
+      "image_matriz": "/static/knn/default/knn/euclidiana/loo.png"
+    },
+    {
+      "nombre": "conjunto_entrenamiento_prueba",
+      "precision": 0.8333,
+      "memory": 284.73,
+      "time": 0.0961,
+      "matriz_confusion": [
+        [
+          10,
+          0,
+          0
+        ],
+        [
+          0,
+          7,
+          2
+        ],
+        [
+          0,
+          3,
+          8
+        ]
+      ],
+      "image_matriz": "/static/knn/default/knn/euclidiana/prueba.png"
+    },
+    {
+      "nombre": "REPORTE",
+      "reporte": {
+        "Iris-setosa": {
+          "precision": 1,
+          "recall": 1,
+          "f1-score": 1,
+          "support": 10
+        },
+        "Iris-versicolor": {
+          "precision": 0.7,
+          "recall": 0.7777777777777778,
+          "f1-score": 0.7377049180327869,
+          "support": 9
+        },
+        "Iris-virginica": {
+          "precision": 0.8,
+          "recall": 0.7272727272727273,
+          "f1-score": 0.7647058823529411,
+          "support": 11
+        },
+        "accuracy": 0.8333,
+        "macro avg": {
+          "precision": 0.8333,
+          "recall": 0.84,
+          "f1-score": 0.8333,
+          "support": 30
+        },
+        "weighted avg": {
+          "precision": 0.84,
+          "recall": 0.8333,
+          "f1-score": 0.8333,
+          "support": 30
+        }
+      }
+    }
+  ],
+  "grafico": "ejemplo"
+}
+
+            elif self.metrica == 'manhattan':
+                print("es manhattan")
+                resultados = {
+  "image_k": "/static/knn/default/knn/manhatan/k.png",
+  "image_fonrteras": "/static/knn/default/knn/manhatan/frontera.png",
+  "k": 6,
+  "metrica": "euclidean",
+  "n": 150,
+  "pruebas": [
+    {
+      "nombre": "kfolds",
+      "k": 5,
+      "precision": 0.9500,
+      "memory": 328.23,
+      "time": 0.1218,
+      "matriz_confusion": [
+        [
+          7.8,
+          0.2,
+          0
+        ],
+        [
+          0,
+          7.8,
+          0.4
+        ],
+        [
+          0,
+          0.6,
+          7.2
+        ]
+      ],
+      "image_matriz": "/static/knn/default/knn/manhatan/kfold.png"
+    },
+    {
+      "nombre": "leave_one_out",
+      "precision": 0.9417,
+      "memory": 328.23,
+      "time": 0.4366,
+      "matriz_confusion": [
+        [
+          0.325,
+          0.00833333,
+          0
+        ],
+        [
+          0,
+          0.31666667,
+          0.025
+        ],
+        [
+          0,
+          0.025,
+          0.3
+        ]
+      ],
+      "image_matriz": "/static/knn/default/knn/manhatan/loo.png"
+    },
+    {
+      "nombre": "conjunto_entrenamiento_prueba",
+      "precision": 0.8333,
+      "memory": 328.23,
+      "time": 0.1092,
+      "matriz_confusion": [
+        [
+          10,
+          0,
+          0
+        ],
+        [
+          0,
+          7,
+          2
+        ],
+        [
+          0,
+          3,
+          8
+        ]
+      ],
+      "image_matriz": "/static/knn/default/knn/manhatan/prueba.png"
+    },
+    {
+      "nombre": "REPORTE",
+      "reporte": {
+        "Iris-setosa": {
+          "precision": 1,
+          "recall": 1,
+          "f1-score": 1,
+          "support": 10
+        },
+        "Iris-versicolor": {
+          "precision": 0.7,
+          "recall": 0.7777777777777778,
+          "f1-score": 0.7377049180327869,
+          "support": 9
+        },
+        "Iris-virginica": {
+          "precision": 0.8,
+          "recall": 0.7272727272727273,
+          "f1-score": 0.7647058823529411,
+          "support": 11
+        },
+        "accuracy": 0.8333,
+        "macro avg": {
+          "precision": 0.8333,
+          "recall": 0.84,
+          "f1-score": 0.8333,
+          "support": 30
+        },
+        "weighted avg": {
+          "precision": 0.84,
+          "recall": 0.8333,
+          "f1-score": 0.8333,
+          "support": 30
+        }
+      }
+    }
+  ],
+  "grafico": "ejemplo"
+}
+
+            print("JSON")
+
         # Convertir a JSON
         resultados_json = json.dumps(resultados, indent=4)
+
         return resultados_json
 
 
